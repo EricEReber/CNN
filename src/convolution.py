@@ -78,7 +78,7 @@ def conv2DSep(image, kernel, coef, stride=1, pad='zero'):
 
 if __name__ == '__main__':
 
-    path = 'C:/Users/gregor.kajda/OneDrive - insidemedia.net/Desktop/private_files/Neural-Network/data/luna.JPG'
+    path = 'C:/Users/gregor.kajda/OneDrive - insidemedia.net/Desktop/private_files/CNN/data/luna.JPG'
     image = imageio.imread(path, as_gray=True)
 
     gauss, ker = generate_gauss_mask(sigma=1)
@@ -86,8 +86,10 @@ if __name__ == '__main__':
     #conv_img = conv2DSep(image, gauss, coef=ker, pad='zero')
     #print(time.time() - start_time)
 
+    start_time = time.time() 
     fourier_conv(image, gauss*ker)
-    
+    print(time.time() - start_time)
+
     #fourier_img = np.fft.fft2(image)
     #fourier_img = np.fft.fftshift(fourier_img)
 
