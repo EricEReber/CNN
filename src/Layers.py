@@ -22,6 +22,9 @@ class Layer:
     def _reset_weights(self): 
         raise NotImplementedError
 
+    def _initialize_weights(self): 
+        raise NotImplementedError
+
 class FullyConnectedLayer(Layer): 
     
     def __init__(self): 
