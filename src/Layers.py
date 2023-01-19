@@ -3,6 +3,7 @@ import autograd.numpy as np
 import sys
 from typing import Callable 
 from Schedulers import *
+from activation_funcs import * 
 
 """
 Interface contatining all the layers that will be available for construction of 
@@ -32,9 +33,16 @@ class Layer:
 
 class FullyConnectedLayer(Layer): 
     
-    def __init__(self, nodes, act_func: Callable, scheduler: Scheduler, seed=None):
-        self.nodes: list[int] = nodes
-        self.act_func: Callable = act_func
+    def __init__(
+            self, 
+            nodes: list[int], 
+            act_func: Callable,  
+            scheduler: Scheduler, 
+            seed=None,
+    ):
+
+        self.nodes = nodes
+        self.act_func = act_func
         self.scheduler = scheduler
         self.weights = self._initialize_weights()
         self.seed = seed
@@ -80,7 +88,21 @@ class FullyConnectedLayer(Layer):
 
         return self.a_matrix
 
-    def _backpropagate(self):
+    def _backpropagate(self, delta_next, lam):
+        
+        activation_derivative = derivate(self.act_func)
+
+        delta_matrix = (self.weights[1:, :] @ delta_next.T).T * activation_derivative(self.z_matrix)
+        gradient_matrix = self.a_matrix[:, 1:].T @ delta_matrix
+        gradient_bias = np.sum(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
+
+        # regularization term
+        gradient_matrix += self.weights[1:, :] * lam 
+
+        update_matrix = np.vstack( 
+        )
+        
+        
          
 
 class OutputLayer(FullyConnectedLayer):
@@ -97,10 +119,3 @@ class Pooling2DLayer(Layer):
 
     def __init__(self):
         super().__init__()
-
-
-A = np.array([1, 2, -2, 7])
-
-A = np.where(A > 0, A, 0)
-
-print(A)
