@@ -203,8 +203,47 @@ class OutputLayer(FullyConnectedLayer):
 
 class Convolution2DLayer(Layer): 
 
-    def __init__(self): 
-        super().__init__() 
+    def __init__(
+        self, 
+        input_channels,
+        feature_maps, # also known as feature maps
+        kernel_size, 
+        stride, 
+        padding, 
+        act_func, 
+    ): 
+        super().__init__()
+        self.kernel_size = kernel_size 
+        self.input_channels = input_channels
+        self.feature_maps = feature_maps
+        self.stride = stride 
+        self.padding = padding
+        self.act_func = act_func
+        
+    def _initialize_weights(self):
+
+        if self.seed is not None: 
+            np.random.seed(self.seed)
+
+        kernel_tensor = np.ndarray(
+                                    (
+                                    self.input_channels, self.feature_maps, 
+                                    self.kernel_size, self.kernel_size
+                                    )
+                                )
+
+        for i in range(kernel_tensor.shape[0]): 
+            for j in range(kernel_tensor.shape[1]): 
+                kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
+                
+        return kernel_tensor
+
+    def _reset_weights(self): 
+        
+        if self.seed is not None: 
+            np.random.seed(self.seed)
+
+        self.weights = np.random.rand(self.nodes[0]+1, self.nodes[1])
 
 class Pooling2DLayer(Layer):
 
