@@ -18,17 +18,16 @@ class CNN:
  
     def __init__(
         self,
-        layers: np.ndarray[Layer],
         cost_func: Callable = CostOLS,
         seed: int = None,
     ):
-        self.layers = layers
+        self.layers = dict() # Guarantee of order 
         self.cost_func = cost_func
         self.seed = seed
         self.schedulers_weight = list()
         self.schedulers_bias = list()
-        self.a_matrices = list()
-        self.z_matrices = list()
+        #self.a_matrices = list()
+        #self.z_matrices = list()
         self.classification = None
 
         self._initialize_weights()
