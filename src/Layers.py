@@ -209,7 +209,7 @@ class Convolution2DLayer(Layer):
         feature_maps, # also known as feature maps
         kernel_size, 
         stride, 
-        padding, 
+        pad, 
         act_func, 
     ): 
         super().__init__()
@@ -217,33 +217,54 @@ class Convolution2DLayer(Layer):
         self.input_channels = input_channels
         self.feature_maps = feature_maps
         self.stride = stride 
-        self.padding = padding
         self.act_func = act_func
+        self.pad = pad
+
+        self._initialize_weights()
         
     def _initialize_weights(self):
 
         if self.seed is not None: 
             np.random.seed(self.seed)
 
-        kernel_tensor = np.ndarray(
+        self.kernel_tensor = np.ndarray(
                                     (
                                     self.input_channels, self.feature_maps, 
                                     self.kernel_size, self.kernel_size
                                     )
                                 )
 
-        for i in range(kernel_tensor.shape[0]): 
-            for j in range(kernel_tensor.shape[1]): 
-                kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
-                
-        return kernel_tensor
+        for i in range(self.kernel_tensor.shape[0]): 
+            for j in range(self.kernel_tensor.shape[1]): 
+                self.kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
+
+    def _feedforward(self, X):
+
+        X = self._padding(X)
+
+
 
     def _reset_weights(self): 
         
-        if self.seed is not None: 
-            np.random.seed(self.seed)
+        self._initialize_weights()
 
-        self.weights = np.random.rand(self.nodes[0]+1, self.nodes[1])
+
+    def _padding(self, img, kernel_size):
+
+        if self.pad == 'same':
+            new_height = img.shape[0] + (kernel_size//2)*2
+            new_width = img.shape[1] + (kernel_size//2)*2
+            k_height = kernel_size//2
+
+            padded_img = np.zeros((new_height, new_width, img.shape[2]))
+
+            padded_img[k_height:new_height-k_height, k_height:new_width-k_height, :] = img[:,:, :]
+            
+            return padded_img
+
+        else: 
+            return img
+
 
 class Pooling2DLayer(Layer):
 
