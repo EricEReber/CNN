@@ -240,21 +240,44 @@ class Convolution2DLayer(Layer):
 
     def _feedforward(self, X):
 
-        X = self._padding(X)
+        input = self._padding(X)
 
+        output = np.ndarray(
+                                (X.shape[0], X.shape[1],
+                                self.feature_maps, X.shape[3])
+                            )
 
+        start = self.kernel_size//2
+        if self.kernel_size % 2 != 0: 
+            end = start + 1
+        else: 
+            end = start 
+        
+        for img in range(input.shape[3]): 
+            for chin in range(self.input_channels): 
+                for chout in range(self.feature_maps): 
+                    for x in range(start, input.shape[0]+end, self.stride): 
+                        for y in range(start, input.shape[1]+end, self.stride): 
+
+                            # TODO: Change the order of the image dimensions and the input channels and batch size
+                            output[x - start : x + end, y - start : y + end, chout, img] = \
+                                np.sum(input[x - start : x + end, y - start : y + end, chin, img] 
+                                * self.kernel_tensor[chin, chout, :, :])
+        
+        return self.act_func(output)
+    
 
     def _reset_weights(self): 
         
         self._initialize_weights()
 
 
-    def _padding(self, img, kernel_size):
+    def _padding(self, img):
 
         if self.pad == 'same':
-            new_height = img.shape[0] + (kernel_size//2)*2
-            new_width = img.shape[1] + (kernel_size//2)*2
-            k_height = kernel_size//2
+            new_height = img.shape[0] + (self.kernel_size//2)*2
+            new_width = img.shape[1] + (self.kernel_size//2)*2
+            k_height = self.kernel_size//2
 
             padded_img = np.zeros((new_height, new_width, img.shape[2]))
 
