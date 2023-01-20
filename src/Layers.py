@@ -28,22 +28,21 @@ class Layer:
     def _initialize_weights(self): 
         raise NotImplementedError
 
-    def _update_weights(self): 
-        raise NotImplementedError
-
 class FullyConnectedLayer(Layer): 
     
     def __init__(
             self, 
             nodes: list[int], 
             act_func: Callable,  
-            scheduler: Scheduler, 
+            scheduler: Scheduler,
+            *scheduler_args: list, 
             seed=None,
     ):
 
         self.nodes = nodes
         self.act_func = act_func
-        self.scheduler = scheduler
+        self.scheduler_weight = scheduler(*scheduler_args)
+        self.scheduler_bias = scheduler(*scheduler_args)
         self.weights = self._initialize_weights()
         self.seed = seed
 
@@ -64,9 +63,7 @@ class FullyConnectedLayer(Layer):
             np.random.seed(self.seed)
 
         self.weights = np.random.rand(self.nodes[0]+1, self.nodes[1])
- 
-    def _update_weights(self): 
-        raise NotImplementedError
+
 
     def _feedforward(self, X: np.ndarray):
         
@@ -88,6 +85,7 @@ class FullyConnectedLayer(Layer):
 
         return self.a_matrix
 
+
     def _backpropagate(self, delta_next, lam):
         
         activation_derivative = derivate(self.act_func)
@@ -99,11 +97,18 @@ class FullyConnectedLayer(Layer):
         # regularization term
         gradient_matrix += self.weights[1:, :] * lam 
 
-        update_matrix = np.vstack( 
+        # TODO: This part needs changing! Scheduler should update weights and bias simultaneously, 
+        # and not require two instances of the same class for the weight and bias update task
+        update_matrix = np.vstack(
+            [
+                self.scheduler_weight.update_change(gradient_matrix),
+                self.scheduler_bias.update_change(gradient_bias),
+            ]
         )
+
+        self.weights -= update_matrix
         
         
-         
 
 class OutputLayer(FullyConnectedLayer):
 
