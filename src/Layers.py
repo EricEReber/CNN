@@ -239,7 +239,7 @@ class Convolution2DLayer(Layer):
                 self.kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
 
     def _feedforward(self, X):
-
+        
         input = self._padding(X)
 
         output = np.ndarray(
@@ -259,22 +259,45 @@ class Convolution2DLayer(Layer):
         for img in range(input.shape[3]): 
             for chin in range(self.input_channels): 
                 for chout in range(self.feature_maps): 
-                    for x in range(start, input.shape[0]+end, self.stride): 
-                        for y in range(start, input.shape[1]+end, self.stride): 
+                    for x in range(start, input.shape[0], self.stride): 
+                        for y in range(start, input.shape[1], self.stride): 
 
-                            output[x - start : x + end, y - start : y + end, chout, img] = \
+                            output[x-start, y-start, chout, img] = \
                                 np.sum(input[x - start : x + end, y - start : y + end, chin, img] 
                                 * self.kernel_tensor[chin, chout, :, :])
+                            
+                            # Can also be written in a less intuitive way by introducing two extra for loops:
+                            """
+                            for k_x in range(self.kernel_size): 
+                                for k_y in range(self.kernel_size): 
+                                    output[x, y, chout, img] += self.kernel_tensor[chin, chout, kx, ky] * input[x+k_x, y+k_y, chin, img]
+                            """
+                            # Pay attention to the fact that we're not rotating the kernel by 180 degrees when filtering the image in 
+                            # the convolutional layer, as convolution in terms of Machine Learning is a procedure known as cross-correlation 
+                            # in image processing and signal processing
         
         return self.act_func(output)
 
-    def _backpropagate(self, delta_next, lam):
+    def _backpropagate(self, X, delta_next, lam):
+
+        delta = np.zeros((X.shape))
+        kernel_grad = np.zeros((self.kernel_tensor))
         
-        if len(delta_next.shape) < 2: 
-            
-            
-            # The gradient/delta from a fully connected layer to a convolutional layer 
-            print()
+        input = self._padding(X)
+
+        start = self.kernel_size//2
+        if self.kernel_size % 2 != 0: 
+            end = start + 1
+        else: 
+            end = start 
+
+        for img in range(input.shape[3]): 
+            for chin in range(self.input_channels):
+                for chout in range(self.feature_maps):
+                    for x in range(start, input.shape[0], self.stride): 
+                        for y in range(start, input.shape[1], self.stride): 
+
+                            delta[x, y, chin, img] = np.sum(delta_next[])
         return 
 
 
@@ -283,21 +306,27 @@ class Convolution2DLayer(Layer):
         self._initialize_weights()
 
 
-    def _padding(self, img):
+    def _padding(self, batch):
 
+        # TODO: Need fixing to output so the channels are merged back together after padding is finished!
         if self.pad == 'same':
-            new_height = img.shape[0] + (self.kernel_size//2)*2
-            new_width = img.shape[1] + (self.kernel_size//2)*2
+
+            new_height = batch[:,:,0,0].shape[0] + (self.kernel_size//2)*2
+            new_width = batch[:,:,0,0].shape[1] + (self.kernel_size//2)*2
             k_height = self.kernel_size//2
 
-            padded_img = np.zeros((new_height, new_width, img.shape[2]))
-
-            padded_img[k_height:new_height-k_height, k_height:new_width-k_height, :] = img[:,:, :]
+            new_tensor = np.ndarray((new_height, new_width, batch.shape[2], batch.shape[3]))
             
-            return padded_img
+            for img in range(batch.shape[3]):
+
+                padded_img = np.zeros((new_height, new_width, batch[:,:,:,img].shape[2]))
+                padded_img[k_height:new_height-k_height, k_height:new_width-k_height, :] = batch[:,:,:,img]
+                new_tensor[:,:,:,img] = padded_img[:,:,:]
+            
+            return new_tensor
 
         else: 
-            return img
+            return batch
 
 
 class Pooling2DLayer(Layer):
@@ -307,8 +336,8 @@ class Pooling2DLayer(Layer):
 
 class FlattenLayer(Layer): 
 
-    def __init__(self): 
-        super().__init__() 
+    def __init__(self, seed): 
+        super().__init__(seed)
 
     def _feedforward(self, X): 
 
