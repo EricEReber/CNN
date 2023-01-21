@@ -14,8 +14,8 @@ a models architecture.
 
 class Layer: 
 
-    def __init__(self): 
-        self
+    def __init__(self, seed): 
+        self,seed = seed
     
     def _feedforward(self): 
         raise NotImplementedError 
@@ -29,6 +29,7 @@ class Layer:
     def _initialize_weights(self): 
         raise NotImplementedError
 
+
 class FullyConnectedLayer(Layer): 
     
     def __init__(
@@ -39,13 +40,12 @@ class FullyConnectedLayer(Layer):
             *scheduler_args: list, 
             seed=None,
     ):
-
+        super().__init__(seed)
         self.nodes = nodes
         self.act_func = act_func
         self.scheduler_weight = scheduler(*scheduler_args)
         self.scheduler_bias = scheduler(*scheduler_args)
         self.weights = self._initialize_weights()
-        self.seed = seed
 
     def _initialize_weights(self):
 
@@ -200,7 +200,6 @@ class OutputLayer(FullyConnectedLayer):
             self.prediction = 'Mulit-class'      
 
 
-
 class Convolution2DLayer(Layer): 
 
     def __init__(
@@ -210,9 +209,10 @@ class Convolution2DLayer(Layer):
         kernel_size, 
         stride, 
         pad, 
-        act_func, 
+        act_func,
+        seed=None,
     ): 
-        super().__init__()
+        super().__init__(seed)
         self.kernel_size = kernel_size 
         self.input_channels = input_channels
         self.feature_maps = feature_maps
@@ -247,6 +247,9 @@ class Convolution2DLayer(Layer):
                                 self.feature_maps, X.shape[3])
                             )
 
+        # Will need this parameter for backpropagation
+        self.output_shape = output.shape
+        
         start = self.kernel_size//2
         if self.kernel_size % 2 != 0: 
             end = start + 1
@@ -259,13 +262,21 @@ class Convolution2DLayer(Layer):
                     for x in range(start, input.shape[0]+end, self.stride): 
                         for y in range(start, input.shape[1]+end, self.stride): 
 
-                            # TODO: Change the order of the image dimensions and the input channels and batch size
                             output[x - start : x + end, y - start : y + end, chout, img] = \
                                 np.sum(input[x - start : x + end, y - start : y + end, chin, img] 
                                 * self.kernel_tensor[chin, chout, :, :])
         
         return self.act_func(output)
-    
+
+    def _backpropagate(self, delta_next, lam):
+        
+        if len(delta_next.shape) < 2: 
+            
+            
+            # The gradient/delta from a fully connected layer to a convolutional layer 
+            print()
+        return 
+
 
     def _reset_weights(self): 
         
@@ -293,3 +304,19 @@ class Pooling2DLayer(Layer):
 
     def __init__(self):
         super().__init__()
+
+class FlattenLayer(Layer): 
+
+    def __init__(self): 
+        super().__init__() 
+
+    def _feedforward(self, X): 
+
+        self.inp_shape = X.shape
+        # Remember, the data has the following shape: (H, W, FM, B) Where H = Height, W = Width, FM = Feature maps and B = Batch size
+        return X.reshape(-1, X.shape[3])
+    
+    def _backpropagate(self, delta_next): 
+
+        return delta_next.reshape(self.inp_shape)
+
