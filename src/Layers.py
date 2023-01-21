@@ -284,6 +284,8 @@ class Convolution2DLayer(Layer):
         kernel_grad = np.zeros((self.kernel_tensor))
         
         input = self._padding(X)
+        # The gradient received from the nex layer also needs to be padded 
+        delta_next = self.padding(delta_next)
 
         start = self.kernel_size//2
         if self.kernel_size % 2 != 0: 
@@ -297,7 +299,13 @@ class Convolution2DLayer(Layer):
                     for x in range(start, input.shape[0], self.stride): 
                         for y in range(start, input.shape[1], self.stride): 
 
-                            delta[x, y, chin, img] = np.sum(delta_next[])
+                            delta[x, y, chin, img] = np.sum(delta_next[x-start : x + end, y - start: y + end, chout, img] 
+                                                            * self.kernel_tensor[chin, chout, :, :])
+
+                                for k_x in range(self.kernel_size): 
+                                    for k_y in range(self.kernel_size):
+
+                                        kernel_grad[chin, chout, k_x, k_y] = np.sum()
         return 
 
 
