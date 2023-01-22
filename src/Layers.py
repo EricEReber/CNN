@@ -299,14 +299,19 @@ class Convolution2DLayer(Layer):
                     for x in range(start, input.shape[0], self.stride): 
                         for y in range(start, input.shape[1], self.stride): 
 
-                            delta[x, y, chin, img] = np.sum(delta_next[x-start : x + end, y - start: y + end, chout, img] 
+                            delta[x, y, chin, img] = np.sum(delta_next[x - start : x + end, y - start: y + end, chout, img] 
                                                             * self.kernel_tensor[chin, chout, :, :])
 
-                                for k_x in range(self.kernel_size): 
-                                    for k_y in range(self.kernel_size):
+                            for k_x in range(self.kernel_size): 
+                                for k_y in range(self.kernel_size):
 
-                                        kernel_grad[chin, chout, k_x, k_y] = np.sum()
-        return 
+                                    kernel_grad[chin, chout, k_x, k_y] = \
+                                        np.sum(input[x - start : x + end, y - start : y + end, chin, img]
+                                                * delta_next[x - start : x + end, y - start, y + end, chout, img])
+        
+                                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad
+
+        return delta
 
 
     def _reset_weights(self): 
