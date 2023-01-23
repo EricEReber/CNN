@@ -179,7 +179,6 @@ class OutputLayer(FullyConnectedLayer):
 
         self.weights -= update_matrix
 
-
     def predict(self, X: np.ndarra , *, threshold=0.5): 
         
         predict = self._feedforward(X)
@@ -204,12 +203,12 @@ class Convolution2DLayer(Layer):
 
     def __init__(
         self, 
-        input_channels,
+        input_channels, # number of maps the input is split into
         feature_maps, # also known as feature maps
         kernel_size, 
         stride, 
         pad, 
-        act_func,
+        act_func: Callable,
         seed=None,
     ): 
         super().__init__(seed)
@@ -357,11 +356,36 @@ class Pooling2DLayer(Layer):
         self.stride = stride
         self.pooling = pooling
 
-    def _feedforward(self, X):
 
-        for x in range chin
+    def _feedforward(self, X):
         
-        return
+        # Computing the size of the feature maps based on kernel size and the stride parameter
+        new_height = (X[:,:,0,0].shape[0]-self.kernel_size)/self.stride + 1 
+        if X[:,:,0,0].shape[1] == X[:,:,0,0].shape[0]: 
+            new_width = new_height
+        else: 
+            new_width = (X[:,:,0,0].shape[1]-self.kernel_size)/self.stride + 1
+
+        output = np.ndarray((new_height, new_width, X.shape[2], X.shape[3]))
+
+        if self.pooling == 'max': 
+            self.pooling_action = np.max
+        else: 
+            self.pooling_action = np.mean
+
+        
+        for img in range(X.shape[3]): 
+            for map in range(X.shape[2]): 
+                new_x, new_y = 0,0
+                for x in range(0, X.shape[0], self.stride):
+                    for y in range(0, X.shape[1], self.stride): 
+                        
+                        output[new_x, new_y] = \
+                            self.pooling_action(X[x : x + self.kernel_size, y : y + self.kernel_size, map, img])
+                    new_y += 1 
+                new_x += 1
+
+        return output
 
 class FlattenLayer(Layer): 
 
