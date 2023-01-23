@@ -238,6 +238,11 @@ class Convolution2DLayer(Layer):
             for j in range(self.kernel_tensor.shape[1]): 
                 self.kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
 
+    
+    def _reset_weights(self): 
+        self._initialize_weights()
+
+
     def _feedforward(self, X):
         
         input = self._padding(X)
@@ -284,7 +289,13 @@ class Convolution2DLayer(Layer):
         kernel_grad = np.zeros((self.kernel_tensor))
         
         input = self._padding(X)
-        # The gradient received from the nex layer also needs to be padded 
+        
+        # Since an activation function is used at the output of the convolution layer, its derivative
+        # has to be accounted for in the backpropagation -> as if ReLU a layer on its own.
+        act_derivative = derivate(self.act_func)
+        delta_next = act_derivative(delta_next)
+
+        # The gradient received from the next layer also needs to be padded 
         delta_next = self.padding(delta_next)
 
         start = self.kernel_size//2
@@ -300,7 +311,7 @@ class Convolution2DLayer(Layer):
                         for y in range(start, input.shape[1], self.stride): 
 
                             delta[x, y, chin, img] = np.sum(delta_next[x - start : x + end, y - start: y + end, chout, img] 
-                                                            * self.kernel_tensor[chin, chout, :, :])
+                                                            * np.rot90(np.rot90(self.kernel_tensor[chin, chout, :, :])))
 
                             for k_x in range(self.kernel_size): 
                                 for k_y in range(self.kernel_size):
@@ -308,15 +319,11 @@ class Convolution2DLayer(Layer):
                                     kernel_grad[chin, chout, k_x, k_y] = \
                                         np.sum(input[x - start : x + end, y - start : y + end, chin, img]
                                                 * delta_next[x - start : x + end, y - start, y + end, chout, img])
-        
+
+                                    # Each filter is updated 
                                     self.kernel_tensor[chin, chout, :, :] -= kernel_grad
 
         return delta
-
-
-    def _reset_weights(self): 
-        
-        self._initialize_weights()
 
 
     def _padding(self, batch):
@@ -344,8 +351,17 @@ class Convolution2DLayer(Layer):
 
 class Pooling2DLayer(Layer):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, seed, kernel_size, stride, pooling='max'):
+        super().__init__(seed)
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.pooling = pooling
+
+    def _feedforward(self, X):
+
+        for x in range chin
+        
+        return
 
 class FlattenLayer(Layer): 
 
@@ -354,11 +370,11 @@ class FlattenLayer(Layer):
 
     def _feedforward(self, X): 
 
-        self.inp_shape = X.shape
+        self.input_shape = X.shape
         # Remember, the data has the following shape: (H, W, FM, B) Where H = Height, W = Width, FM = Feature maps and B = Batch size
         return X.reshape(-1, X.shape[3])
     
     def _backpropagate(self, delta_next): 
 
-        return delta_next.reshape(self.inp_shape)
+        return delta_next.reshape(self.input_shape)
 

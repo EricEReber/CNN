@@ -45,7 +45,8 @@ def conv2D(image, kernel, stride=1, pad='zero'):
     for i in range(half_dim, conv_image.shape[0]+half_dim, stride): 
         for j in range(half_dim, conv_image.shape[1]+half_dim, stride): 
             
-            conv_image[i-half_dim, j-half_dim] = np.sum(pad_image[i-half_dim:i+half_dim+1,j-half_dim:j+half_dim+1]*kernel)
+            conv_image[i-half_dim, j-half_dim] = \
+                np.sum(pad_image[i-half_dim:i+half_dim+1,j-half_dim:j+half_dim+1]*kernel)
 
     return conv_image
 
