@@ -1,4 +1,5 @@
 import autograd.numpy as np
+from autograd import elementwise_grad
 
 """
 This file contains activation functions and their derivatives for neural networks
@@ -8,7 +9,6 @@ def sigmoid(x):
         return 1.0 / (1 + np.exp(-x))
     except FloatingPointError:
         return np.where(x > np.zeros(x.shape), np.ones(x.shape), np.zeros(x.shape))
-
 
 def softmax(x):
     x = x - np.max(x, axis=-1, keepdims=True)
@@ -22,7 +22,6 @@ def RELU(x: np.ndarray):
 def LRELU(x: np.ndarray):
     delta = 10e-4
     return np.where(x > np.zeros(x.shape), x, delta * x)
-
 
 def derivate(func):
     if func.__name__ == "sigmoid":
