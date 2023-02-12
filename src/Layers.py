@@ -15,7 +15,7 @@ a models architecture.
 class Layer: 
 
     def __init__(self, seed): 
-        self,seed = seed
+        self.seed = seed
     
     def _feedforward(self): 
         raise NotImplementedError 
@@ -30,7 +30,7 @@ class FullyConnectedLayer(Layer):
     
     def __init__(
             self, 
-            nodes: tuple[int], 
+            nodes: list[int], 
             act_func: Callable,  
             scheduler: Scheduler,
             *scheduler_args: list, 
@@ -41,7 +41,7 @@ class FullyConnectedLayer(Layer):
         self.act_func = act_func
         self.scheduler_weight = scheduler(*scheduler_args)
         self.scheduler_bias = scheduler(*scheduler_args)
-        self.weights = self._reset_weights()
+        self._reset_weights()
 
     def _reset_weights(self): 
         
@@ -50,7 +50,7 @@ class FullyConnectedLayer(Layer):
 
         bias = 1
         self.weights = np.random.rand(self.nodes[0]+bias, self.nodes[1])
-
+        # return self.weights
 
     def _feedforward(self, X: np.ndarray):
         
