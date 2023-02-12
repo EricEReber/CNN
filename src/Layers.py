@@ -145,7 +145,7 @@ class OutputLayer(FullyConnectedLayer):
         # Again, remember that in the OutputLayer the activation function is the output function
         activation_derivative = derivate(self.act_func) 
 
-        if self.prediction is 'Multi-class': 
+        if self.prediction == 'Multi-class': 
             delta_matrix = self.a_matrix - target
         else: 
             cost_func_derivative = grad(self.cost_func)
