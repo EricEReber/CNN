@@ -49,7 +49,7 @@ class FullyConnectedLayer(Layer):
             np.random.seed(self.seed)
 
         bias = 1
-        self.weights = np.random.rand(self.nodes[0]+bias self.nodes[1])
+        self.weights = np.random.rand(self.nodes[0]+bias, self.nodes[1])
 
 
     def _feedforward(self, X: np.ndarray):
