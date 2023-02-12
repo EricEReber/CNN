@@ -4,7 +4,7 @@ from autograd import grad
 import sys
 from typing import Callable 
 from Schedulers import *
-from activation_funcs import * 
+from activationFunctions import * 
 
 """
 Interface contatining all the layers that will be available for construction of 
@@ -26,10 +26,6 @@ class Layer:
     def _reset_weights(self): 
         raise NotImplementedError
 
-    def _initialize_weights(self): 
-        raise NotImplementedError
-
-
 class FullyConnectedLayer(Layer): 
     
     def __init__(
@@ -45,23 +41,15 @@ class FullyConnectedLayer(Layer):
         self.act_func = act_func
         self.scheduler_weight = scheduler(*scheduler_args)
         self.scheduler_bias = scheduler(*scheduler_args)
-        self.weights = self._initialize_weights()
-
-    def _initialize_weights(self):
-
-        if self.seed is not None: 
-            np.random.seed(self.seed)
-
-        weight_matrix = np.random.rand(self.nodes[0]+1, self.nodes[1])
-        
-        return weight_matrix
+        self.weights = self._reset_weights()
 
     def _reset_weights(self): 
         
         if self.seed is not None: 
             np.random.seed(self.seed)
 
-        self.weights = np.random.rand(self.nodes[0]+1, self.nodes[1])
+        bias = 1
+        self.weights = np.random.rand(self.nodes[0]+bias self.nodes[1])
 
 
     def _feedforward(self, X: np.ndarray):
@@ -124,6 +112,7 @@ class OutputLayer(FullyConnectedLayer):
         
         self.cost_func = self.cost_func
 
+        self._reset_weights()
         self.set_prediction() # Decides what type of prediction the output layer performs
 
         
@@ -153,7 +142,7 @@ class OutputLayer(FullyConnectedLayer):
 
     def _backpropagate(self, target, lam):
         
-        # Again, remember that in hte OutputLayer the activation function is the output function
+        # Again, remember that in the OutputLayer the activation function is the output function
         activation_derivative = derivate(self.act_func) 
 
         if self.prediction is 'Multi-class': 
@@ -179,11 +168,11 @@ class OutputLayer(FullyConnectedLayer):
 
         self.weights -= update_matrix
 
-    def predict(self, X: np.ndarra , *, threshold=0.5): 
+    def predict(self, X: np.ndarray, *, threshold=0.5): 
         
         predict = self._feedforward(X)
 
-        if self.prediction is 'Binary': 
+        if self.prediction == 'Binary': 
             return np.where(predict > threshold, 1, 0)
         else: 
             return predict
@@ -197,6 +186,14 @@ class OutputLayer(FullyConnectedLayer):
             self.prediction = 'Binary'
         else: 
             self.prediction = 'Mulit-class'      
+
+    def _reset_weights(self): 
+        
+        if self.seed is not None: 
+            np.random.seed(self.seed)
+
+        bias = 1
+        self.weights = np.random.rand(self.nodes[0]+bias self.nodes[1])
 
 
 class Convolution2DLayer(Layer): 
@@ -219,9 +216,9 @@ class Convolution2DLayer(Layer):
         self.act_func = act_func
         self.pad = pad
 
-        self._initialize_weights()
+        self._reset_weights()
         
-    def _initialize_weights(self):
+    def _reset_weights(self):
 
         if self.seed is not None: 
             np.random.seed(self.seed)
@@ -238,10 +235,6 @@ class Convolution2DLayer(Layer):
                 self.kernel_tensor[i,j,:,:] = np.random.rand(self.kernel_size, self.kernel_size)
 
     
-    def _reset_weights(self): 
-        self._initialize_weights()
-
-
     def _feedforward(self, X):
         
         input = self._padding(X)
