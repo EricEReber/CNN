@@ -193,7 +193,7 @@ class OutputLayer(FullyConnectedLayer):
             np.random.seed(self.seed)
 
         bias = 1
-        self.weights = np.random.rand(self.nodes[0]+bias self.nodes[1])
+        self.weights = np.random.rand(self.nodes[0]+bias, self.nodes[1])
 
 
 class Convolution2DLayer(Layer): 
