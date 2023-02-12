@@ -30,7 +30,7 @@ class FullyConnectedLayer(Layer):
     
     def __init__(
             self, 
-            nodes: list[int], 
+            nodes, 
             act_func: Callable,  
             scheduler: Scheduler,
             *scheduler_args: list, 
@@ -48,28 +48,27 @@ class FullyConnectedLayer(Layer):
         if self.seed is not None: 
             np.random.seed(self.seed)
 
-        bias = 1
-        self.weights = np.random.rand(self.nodes[0]+bias, self.nodes[1])
+        self.weights = np.random.randn(self.nodes[0]+1, self.nodes[1])
         # return self.weights
 
-    def _feedforward(self, X: np.ndarray):
+    def _feedforward(self, X):
         
         if len(X.shape) == 1: 
             X = X.reshape((1, X.shape[0]))
 
         # Adding bias to the data
-        bias = np.ones(X.shape[0]) * 0.01
+        bias = np.ones((X.shape[0], 1)) * 0.01
         X = np.hstack([bias, X])
         
-        self.z_matrix = np.zeros((X.shape[0], self.weights.shape[0]))
-        self.a_matrix = np.zeros((X.shape[0], self.weights.shape[0]))
-
-        for i in range(self.weights.shape[0]): 
-            z = X @ self.weights[i]
-            self.z_matrix[i, :] = z[:]  
-            a = self.act_func(z)
-            self.a_matrix[i, : ] = a[:]
-
+        self.a_matrix = np.zeros((X.shape[0], self.weights.shape[1]))
+        self.z_matrix = np.zeros((X.shape[0], self.weights.shape[1]))
+            
+         
+        z = X @ self.weights
+        self.z_matrix[:,:] = z[:,:] 
+        a = self.act_func(z)
+        self.a_matrix[:,:] = a[:,:]
+       
         return self.a_matrix
 
 
