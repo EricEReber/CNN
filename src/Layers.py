@@ -1,10 +1,9 @@
 import math
 import autograd.numpy as np
 from autograd import grad 
-import sys
 from typing import Callable 
-from Schedulers import *
-from activationFunctions import * 
+from src.activationFunctions import * 
+from src.Schedulers import *
 
 """
 Interface contatining all the layers that will be available for construction of 
@@ -49,7 +48,6 @@ class FullyConnectedLayer(Layer):
             np.random.seed(self.seed)
 
         self.weights = np.random.randn(self.nodes[0]+1, self.nodes[1])
-        # return self.weights
 
     def _feedforward(self, X):
         

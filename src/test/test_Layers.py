@@ -1,15 +1,10 @@
-import sys 
-sys.path.append('/home/gregz/Files/CNN/src/')
-from Layers import *
-import FFNN
-from Schedulers import *
-from activationFunctions import *
-from costFunctions import *
+from src.Layers import *
 from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-
+import src.FFNN
 import numpy as np
+
 
 cancer_dataset = load_breast_cancer()
 cancer_X = cancer_dataset.data

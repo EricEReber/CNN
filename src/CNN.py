@@ -2,15 +2,15 @@ import math
 import autograd.numpy as np
 import sys
 import warnings
-from Schedulers import *
-from activationFunctions import *
-from costFunctions import *
+from src.Schedulers import *
+from src.activationFunctions import *
+from src.costFunctions import *
+from src.Layers import Layer
 from autograd import grad, elementwise_grad
 from random import random, seed
 from copy import deepcopy
 from typing import Tuple, Callable
 from sklearn.utils import resample
-from Layers import Layer
 
 warnings.simplefilter("error")
 
