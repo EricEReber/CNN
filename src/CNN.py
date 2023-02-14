@@ -5,12 +5,13 @@ import warnings
 from src.Schedulers import *
 from src.activationFunctions import *
 from src.costFunctions import *
-from src.Layers import Layer
+from src.Layers import *
 from autograd import grad, elementwise_grad
 from random import random, seed
 from copy import deepcopy
 from typing import Tuple, Callable
 from sklearn.utils import resample
+from collections import OrderedDict
 
 warnings.simplefilter("error")
 
@@ -21,7 +22,7 @@ class CNN:
         cost_func: Callable = CostOLS,
         seed: int = None,
     ):
-        self.layers = dict() # Guarantee of order 
+        self.layers = list()
         self.cost_func = cost_func
         self.seed = seed
         self.schedulers_weight = list()
@@ -30,21 +31,36 @@ class CNN:
         #self.z_matrices = list()
         self.classification = None
 
-        self._initialize_weights()
         self._set_classification()
+
+    def FullyConnectedLayer(self, nodes, act_func, scheduler, seed=None):
+        # TODO efficient way to replace final FullyConnectedLayer with Output
+        # future idea: have this function (and similar functions) add
+        # 'initialization of FullyConnectedLayer' to a queue. Layers in queue
+        # are initialized when fit() is called, final layer in queue becomes
+        # OutputLayer. Saves us from changing final layer every new layer.
+
+        if self.layers:
+            prev_nodes = self.layers[-1].nodes[1]
+            layer = FullyConnectedLayer([prev_nodes, nodes], act_func, scheduler, seed)
+        else:
+            # only for testing, FullyConnectedLayer should always follow
+            # FullyConnectedLayer or FlattenLayer
+            layer = FullyConnectedLayer(nodes, act_func, scheduler, seed)
+        self.layers.append(layer)
 
     def fit(
         self,
         X: np.ndarray,
         t: np.ndarray,
         scheduler_class: Scheduler,
-        *scheduler_args: list(),
         batches: int = 1,
         epochs: int = 100,
         lam: float = 0,
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
     ):
+
         #TODO: With the new code architecture, the fit method has to be updated in order
         # to take advantage of the modular design 
 
@@ -52,7 +68,13 @@ class CNN:
         
     def _feedforward(self, X: np.ndarray):
         #TODO - Implement a version of feed forward that uses Layer-classes
-        raise NotImplementedError
+        # raise NotImplementedError
+        a = X
+        for layer in self.layers:
+            a = layer._feedforward(a)
+
+        return a
+
 
     def _backpropagate(self, X, t, lam):
         #TODO - Implement a version of backpropagation that uses Layer-classes
@@ -79,10 +101,6 @@ class CNN:
         assert prediction.size == target.size
         return np.average((target == prediction))
 
-    def _initialize_weights(self):
-        #TODO: Write code to initialize each layers weights
-       raise NotImplementedError
-       
     def _set_classification(self):
         self.classification = False
         if (

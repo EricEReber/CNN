@@ -25,15 +25,15 @@ class FFNN:
 
     Attributes:
     ------------
-        I.  dimensions (tuple[int]): A list of positive integers, which specifies the
+        I   dimensions (tuple[int]): A list of positive integers, which specifies the
             number of nodes in each of the networks layers. The first integer in the array
             defines the number of nodes in the input layer, the second integer defines number
             of nodes in the first hidden layer and so on until the last number, which
             specifies the number of nodes in the output layer.
-        II. hidden_func (Callable): The activation function for the hidden layers
-        III.output_func (Callable): The activation function for the output layer
-        IV. cost_func (Callable): Our cost function
-        V.  seed (int): Sets random seed, makes results reproducible
+        II  hidden_func (Callable): The activation function for the hidden layers
+        III output_func (Callable): The activation function for the output layer
+        IV  cost_func (Callable): Our cost function
+        V   seed (int): Sets random seed, makes results reproducible
     """
 
     def __init__(
@@ -56,15 +56,14 @@ class FFNN:
         self.z_matrices = list()
         self.classification = None
 
-        self._initialize_weights()
+        self.reset_weights()
         self._set_classification()
 
     def fit(
         self,
         X: np.ndarray,
         t: np.ndarray,
-        scheduler_class: Scheduler,
-        *scheduler_args: list(),
+        scheduler: Scheduler,
         batches: int = 1,
         epochs: int = 100,
         lam: float = 0,
@@ -81,7 +80,7 @@ class FFNN:
         ------------
             I    X (np.ndarray) : training data
             II   t (np.ndarray) : target data
-            III  scheduler_class (Scheduler) : specified scheduler (algorithm for optimization of gradient descent)
+            III  scheduler (Scheduler) : specified scheduler (algorithm for optimization of gradient descent)
             IV   scheduler_args (list[int]) : list of all arguments necessary for scheduler
 
         Optional Parameters:
@@ -94,12 +93,12 @@ class FFNN:
 
         Returns:
         ------------
-            I.  scores (dict) : A dictionary containing the performance metrics of the model. The number of the metrics
-                depends on the parameters passed to the fit-function.
+            I   scores (dict) : A dictionary containing the performance metrics of the model.
+                The number of the metrics depends on the parameters passed to the fit-function.
 
         """
 
-        # --------- setup ---------
+        # setup 
         if self.seed is not None:
             np.random.seed(self.seed)
 
@@ -107,7 +106,7 @@ class FFNN:
         if X_val is not None and t_val is not None:
             val_set = True
 
-        # --- Creating arrays for score metrics ----
+        # creating arrays for score metrics
         train_errors = np.empty(epochs)
         train_errors.fill(np.nan)
         val_errors = np.empty(epochs)
@@ -132,15 +131,15 @@ class FFNN:
 
         # create schedulers for each weight matrix
         for i in range(len(self.weights)):
-            self.schedulers_weight.append(scheduler_class(*scheduler_args))
-            self.schedulers_bias.append(scheduler_class(*scheduler_args))
+            self.schedulers_weight.append(copy(scheduler))
+            self.schedulers_bias.append(copy(scheduler))
 
-        print(f"{scheduler_class.__name__}: Eta={scheduler_args[0]}, Lambda={lam}")
+        print(f"{scheduler.__class__.__name__}: Eta={scheduler.eta}, Lambda={lam}")
 
         try:
             for e in range(epochs):
                 for i in range(batches):
-                    # -------- minibatch gradient descent ---------
+                    # allows for minibatch gradient descent
                     if i == batches - 1:
                         # If the for loop has reached the last batch, take all thats left
                         X_batch = X[i * batch_size :, :]
@@ -159,12 +158,13 @@ class FFNN:
                 for scheduler in self.schedulers_bias:
                     scheduler.reset()
 
-                # --------- Computing performance metrics ---------
+                # computing performance metrics
                 pred_train = self.predict(X)
                 train_error = cost_function_train(pred_train)
 
                 train_errors[e] = train_error
                 if val_set:
+                    
                     pred_val = self.predict(X_val)
                     val_error = cost_function_val(pred_val)
                     val_errors[e] = val_error
@@ -176,12 +176,12 @@ class FFNN:
                         val_acc = self._accuracy(pred_val, t_val)
                         val_accs[e] = val_acc
 
-                # ----- printing progress bar ------------
+                # printing progress bar
                 progression = e / epochs
                 print_length = self._progress_bar(
                     progression,
-                    train_error=train_error,
-                    train_acc=train_acc,
+                    train_error=train_errors[e],
+                    train_acc=train_accs[e],
                     val_error=val_errors[e],
                     val_acc=val_accs[e],
                 )
@@ -190,15 +190,16 @@ class FFNN:
             pass
 
         # visualization of training progression (similiar to tensorflow progression bar)
-        print(" " * print_length, end="\r")
+        sys.stdout.write("\r" + " " * print_length)
+        sys.stdout.flush()
         self._progress_bar(
             1,
-            train_error=train_error,
-            train_acc=train_acc,
+            train_error=train_errors[e],
+            train_acc=train_accs[e],
             val_error=val_errors[e],
             val_acc=val_accs[e],
         )
-        print()
+        sys.stdout.write("")
 
         # return performance metrics for the entire run
         scores = dict()
@@ -224,16 +225,16 @@ class FFNN:
 
          Parameters:
         ------------
-             I.  X (np.ndarray): The design matrix, with n rows of p features each
+             I   X (np.ndarray): The design matrix, with n rows of p features each
 
          Optional Parameters:
          ------------
-             II. threshold (float) : sets minimal value for a prediction to be predicted as the positive class
+             II  threshold (float) : sets minimal value for a prediction to be predicted as the positive class
                  in classification problems
 
          Returns:
          ------------
-             I.  z (np.ndarray): A prediction vector (row) for each row in our design matrix
+             I   z (np.ndarray): A prediction vector (row) for each row in our design matrix
                  This vector is thresholded if regression=False, meaning that classification results
                  in a vector of 1s and 0s, while regressions in an array of decimal numbers
 
@@ -275,11 +276,11 @@ class FFNN:
 
         Parameters:
         ------------
-            I.  X (np.ndarray): The design matrix, with n rows of p features each
+            I   X (np.ndarray): The design matrix, with n rows of p features each
 
         Returns:
         ------------
-            I.  z (np.ndarray): A prediction vector (row) for each row in our design matrix
+            I   z (np.ndarray): A prediction vector (row) for each row in our design matrix
         """
 
         # reset matrices
@@ -313,7 +314,7 @@ class FFNN:
                 self.a_matrices.append(a)
             else:
                 try:
-                    # a^L, the nodes in our output layer
+                    # a^L, the nodes in our output layers
                     z = a @ self.weights[i]
                     a = self.output_func(z)
                     self.a_matrices.append(a)
@@ -356,25 +357,50 @@ class FFNN:
                 # for multi-class classification
                 if (
                     self.output_func.__name__ == "softmax"
-                    and self.cost_func.__name__ == "CostCrossEntropy"
                 ):
                     delta_matrix = self.a_matrices[i + 1] - t
-                # for single-class classification
+                # for single class classification
                 else:
                     cost_func_derivative = grad(self.cost_func(t))
-                    delta_matrix = out_derivative(
-                        self.z_matrices[i + 1]
-                    ) * cost_func_derivative(self.a_matrices[i + 1])
+                    # jac = jacobian(sigmoid)(self.z_matrices[i + 1])
+                    # non_zero = jac[jac != 0]   # non_zero.reshape(self.z_matrices[i + 1].shape)
 
+                    delta_matrix = out_derivative(self.z_matrices[i + 1]) * cost_func_derivative(self.a_matrices[i + 1])
+
+                    # non_zero2 = out_derivative(self.z_matrices[i + 1])
+                    #
+                    # print(np.allclose(non_zero.reshape((-1,1)), non_zero2, atol=10e-5))
+                      
             # delta terms for hidden layer
             else:
+                # jac = jacobian(LRELU)(self.z_matrices[i + 1])
+                # non_zero = jac[jac != 0]
                 delta_matrix = (
                     self.weights[i + 1][1:, :] @ delta_matrix.T
                 ).T * hidden_derivative(self.z_matrices[i + 1])
+                 
 
+                # non_zero2 = hidden_derivative(self.z_matrices[i + 1])
+                # print(non_zero.reshape(non_zero2.shape))
+                # print(non_zero2)
+                # print(np.allclose(non_zero.reshape((-1,1)), non_zero2, atol=10e-6))
+                # sys.exit()
             # calculate gradient
-            gradient_weights = self.a_matrices[i][:, 1:].T @ delta_matrix
-            gradient_bias = np.sum(delta_matrix, axis=0).reshape(
+            gradient_weights = np.zeros(
+                (
+                    self.a_matrices[i][:, 1:].shape[0],
+                    self.a_matrices[i][:, 1:].shape[1],
+                    delta_matrix.shape[1],
+                )
+            )
+
+            for j in range(len(delta_matrix)):
+                gradient_weights[j, :, :] = np.outer(
+                    self.a_matrices[i][j, 1:], delta_matrix[j, :]
+                )
+
+            gradient_weights = np.mean(gradient_weights, axis=0)
+            gradient_bias = np.mean(delta_matrix, axis=0).reshape(
                 1, delta_matrix.shape[1]
             )
 
@@ -401,8 +427,8 @@ class FFNN:
         Parameters:
         ------------
             I   prediction (np.ndarray): vector of predicitons output network
-            (1s and 0s in case of classification, and real numbers in case of regression)
-            II  target (np.ndarray): vector of true values (Ideally what the network should predict)
+                (1s and 0s in case of classification, and real numbers in case of regression)
+            II  target (np.ndarray): vector of true values (What the network ideally should predict)
 
         Returns:
         ------------
@@ -410,25 +436,13 @@ class FFNN:
         """
         assert prediction.size == target.size
         return np.average((target == prediction))
-
-    def _initialize_weights(self):
+    def _set_classification(self):
         """
         Description:
         ------------
-            Initializes weights of the FFNN, called upon object initiation
+            Decides if FFNN acts as classifier (True) og regressor (False),
+            sets self.classification during init()
         """
-        for i in range(len(self.dimensions) - 1):
-            if self.seed is not None:
-                np.random.seed(self.seed)
-            weight_array = np.random.randn(
-                self.dimensions[i] + 1, self.dimensions[i + 1]
-            )
-            # Matrix containing weights for the i-th layer in the network
-            weight_array[0, :] = np.random.randn(self.dimensions[i + 1]) * 0.1
-
-            self.weights.append(weight_array)
-
-    def _set_classification(self):
         self.classification = False
         if (
             self.cost_func.__name__ == "CostLogReg"
@@ -447,17 +461,18 @@ class FFNN:
         num_not = print_length - num_equals
         arrow = ">" if num_equals > 0 else ""
         bar = "[" + "=" * (num_equals - 1) + arrow + "-" * num_not + "]"
-        perc_print = self._fmt(progression * 100, N=5)
+        perc_print = self._format(progression * 100, decimals=5)
         line = f"  {bar} {perc_print}% "
 
         for key in kwargs:
-            if kwargs[key]:
-                value = self._fmt(kwargs[key], N=4)
+            if not np.isnan(kwargs[key]):
+                value = self._format(kwargs[key], decimals=4)
                 line += f"| {key}: {value} "
-        print(line, end="\r")
+        sys.stdout.write("\r" + line)
+        sys.stdout.flush()
         return len(line)
 
-    def _fmt(self, value, N=4):
+    def _format(self, value, decimals=4):
         """
         Description:
         ------------
@@ -470,7 +485,6 @@ class FFNN:
         else:
             v = 1
         n = 1 + math.floor(math.log10(v))
-        if n >= N - 1:
+        if n >= decimals - 1:
             return str(round(value))
-            # or overflow
-        return f"{value:.{N-n-1}f}"
+        return f"{value:.{decimals-n-1}f}"

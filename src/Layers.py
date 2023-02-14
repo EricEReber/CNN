@@ -1,5 +1,6 @@
 import math
 import autograd.numpy as np
+from copy import deepcopy, copy
 from autograd import grad 
 from typing import Callable 
 from src.activationFunctions import * 
@@ -32,14 +33,14 @@ class FullyConnectedLayer(Layer):
             nodes, 
             act_func: Callable,  
             scheduler: Scheduler,
-            *scheduler_args: list, 
             seed=None,
     ):
         super().__init__(seed)
         self.nodes = nodes
         self.act_func = act_func
-        self.scheduler_weight = scheduler(*scheduler_args)
-        self.scheduler_bias = scheduler(*scheduler_args)
+        self.scheduler_weight = copy(scheduler)
+        self.scheduler_bias = copy(scheduler)
+        self.weights = None
         self._reset_weights()
 
     def _reset_weights(self): 
@@ -62,6 +63,8 @@ class FullyConnectedLayer(Layer):
         self.z_matrix = np.zeros((X.shape[0], self.weights.shape[1]))
             
          
+        print(f"{X.shape=}")
+        print(f"{self.weights.shape=}")
         z = X @ self.weights
         self.z_matrix[:,:] = z[:,:] 
         a = self.act_func(z)
@@ -102,10 +105,9 @@ class OutputLayer(FullyConnectedLayer):
         output_func: Callable,
         cost_func: Callable,  
         scheduler: Scheduler,
-        *scheduler_args: list, 
         seed=None,
     ): 
-        super().__init__(nodes, output_func, scheduler, *scheduler_args, seed)
+        super().__init__(nodes, output_func, copy(scheduler), seed)
         
         self.cost_func = self.cost_func
 
