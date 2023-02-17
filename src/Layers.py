@@ -109,7 +109,7 @@ class OutputLayer(FullyConnectedLayer):
     ): 
         super().__init__(nodes, output_func, copy(scheduler), seed)
         
-        self.cost_func = self.cost_func
+        self.cost_func = cost_func
 
         self._reset_weights()
         self.set_prediction() # Decides what type of prediction the output layer performs
@@ -121,7 +121,7 @@ class OutputLayer(FullyConnectedLayer):
             X = X.reshape((1, X.shape[0]))
 
         # Adding bias to the data
-        bias = np.ones(X.shape[0]) * 0.01
+        bias = np.ones((X.shape[0], 1)) * 0.01
         X = np.hstack([bias, X])
         
         self.z_matrix = np.zeros((X.shape[0], self.weights.shape[0]))
@@ -135,9 +135,29 @@ class OutputLayer(FullyConnectedLayer):
                 self.a_matrix[i, :] = a[:]
             except Exception as OverflowError: 
                 print('Overflow encountered in fit(): Consider lowering your learning rate or scheduler specific parameters such as momentum, or check if your input values need scaling ')
+                print("here")
 
         return self.a_matrix
 
+        if len(X.shape) == 1: 
+            X = X.reshape((1, X.shape[0]))
+
+        # Adding bias to the data
+        bias = np.ones((X.shape[0], 1)) * 0.01
+        X = np.hstack([bias, X])
+        
+        self.z_matrix = np.zeros((X.shape[0], self.weights.shape[1]))
+        self.a_matrix = np.zeros((X.shape[0], self.weights.shape[1]))
+            
+         
+        print(f"{X.shape=}")
+        print(f"{self.weights.shape=}")
+        z = X @ self.weights
+        self.z_matrix[:,:] = z[:,:] 
+        a = self.act_func(z)
+        self.a_matrix[:,:] = a[:,:]
+       
+        return self.a_matrix
 
     def _backpropagate(self, target, lam):
         

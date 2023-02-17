@@ -15,30 +15,34 @@ from collections import OrderedDict
 
 warnings.simplefilter("error")
 
+
 class CNN:
- 
     def __init__(
         self,
         cost_func: Callable = CostOLS,
+        scheduler: Scheduler = Adam,
         seed: int = None,
     ):
         self.layers = list()
         self.cost_func = cost_func
+        self.scheduler = scheduler
         self.seed = seed
         self.schedulers_weight = list()
         self.schedulers_bias = list()
-        #self.a_matrices = list()
-        #self.z_matrices = list()
+        # self.a_matrices = list()
+        # self.z_matrices = list()
         self.classification = None
 
         self._set_classification()
 
-    def FullyConnectedLayer(self, nodes, act_func, scheduler, seed=None):
+    def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None, seed=None):
         # TODO efficient way to replace final FullyConnectedLayer with Output
         # future idea: have this function (and similar functions) add
         # 'initialization of FullyConnectedLayer' to a queue. Layers in queue
         # are initialized when fit() is called, final layer in queue becomes
         # OutputLayer. Saves us from changing final layer every new layer.
+        if scheduler is None:
+            scheduler = self.scheduler
 
         if self.layers:
             prev_nodes = self.layers[-1].nodes[1]
@@ -48,6 +52,19 @@ class CNN:
             # FullyConnectedLayer or FlattenLayer
             layer = FullyConnectedLayer(nodes, act_func, scheduler, seed)
         self.layers.append(layer)
+
+    def add_OutputLayer(self, nodes, output_func, scheduler=None, seed=None):
+        assert self.layers, "OutputLayer should not be first added layer"
+
+        if scheduler is None:
+            scheduler = self.scheduler
+
+        prev_nodes = self.layers[-1].nodes[1]
+        output_layer = OutputLayer(
+            [prev_nodes, nodes], output_func, self.cost_func, scheduler, seed
+        )
+        self.layers.append(output_layer)
+        print(output_layer.nodes, output_layer.prediction)
 
     def fit(
         self,
@@ -61,13 +78,13 @@ class CNN:
         t_val: np.ndarray = None,
     ):
 
-        #TODO: With the new code architecture, the fit method has to be updated in order
-        # to take advantage of the modular design 
+        # TODO: With the new code architecture, the fit method has to be updated in order
+        # to take advantage of the modular design
 
         raise NotImplementedError
-        
+
     def _feedforward(self, X: np.ndarray):
-        #TODO - Implement a version of feed forward that uses Layer-classes
+        # TODO - Implement a version of feed forward that uses Layer-classes
         # raise NotImplementedError
         a = X
         for layer in self.layers:
@@ -75,12 +92,9 @@ class CNN:
 
         return a
 
-
     def _backpropagate(self, X, t, lam):
-        #TODO - Implement a version of backpropagation that uses Layer-classes
+        # TODO - Implement a version of backpropagation that uses Layer-classes
         raise NotImplementedError
-    
-
 
     def _accuracy(self, prediction: np.ndarray, target: np.ndarray):
         """
