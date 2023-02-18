@@ -256,7 +256,7 @@ class Convolution2DLayer(Layer):
     
     def _feedforward(self, X):
         
-        input = self._padding(X)
+        X_pad = self._padding(X)
 
         output = np.ndarray(
                                 (X.shape[0], X.shape[1],
@@ -267,19 +267,19 @@ class Convolution2DLayer(Layer):
         self.output_shape = output.shape
         
         start = self.kernel_size//2
-        if self.kernel_size % 2 != 0: 
-            end = start + 1
-        else: 
-            end = start 
-        
-        for img in range(input.shape[3]): 
+        # if self.kernel_size % 2 != 0: 
+        #     end = start + 1 
+        # else: 
+        end = start 
+
+        for img in range(X.shape[3]): 
             for chin in range(self.input_channels): 
                 for chout in range(self.feature_maps): 
-                    for x in range(start, input.shape[0], self.stride): 
-                        for y in range(start, input.shape[1], self.stride): 
+                    for x in range(start, X.shape[0]+end, self.stride): 
+                        for y in range(start, X.shape[1]+end, self.stride): 
 
                             output[x-start, y-start, chout, img] = \
-                                np.sum(input[x - start : x + end, y - start : y + end, chin, img] 
+                                np.sum(X_pad[x - start : x+end + end, y - start : y + end, chin, img] 
                                 * self.kernel_tensor[chin, chout, :, :])
                             
                             # Can also be written in a less intuitive way by introducing two extra for loops:
@@ -341,7 +341,7 @@ class Convolution2DLayer(Layer):
 
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
         if self.pad == 'same':
-
+            print(batch.shape)
             new_height = batch[:,:,0,0].shape[0] + (self.kernel_size//2)*2
             new_width = batch[:,:,0,0].shape[1] + (self.kernel_size//2)*2
             k_height = self.kernel_size//2
