@@ -5,7 +5,8 @@ from sklearn.model_selection import train_test_split
 from collections import OrderedDict
 from src.FFNN import FFNN
 from src.CNN import CNN
-import numpy as np
+from src.costFunctions import CostOLS
+import autograd.numpy as np
 np.random.seed(2023)
 
 """
@@ -34,44 +35,31 @@ seed = 2023
 
 adam_scheduler= Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
-dims1 = [cancer_X.shape[1], 50]
-
-layer1 = FullyConnectedLayer(
-        dims1,
-        sigmoid, 
-        Adam, 
-        seed=seed
-        )
-
-layer_a = layer1._feedforward(X_train)
-# print(f"{layer1.weights=}")
-# print(f"{layer_a=}")
+X_train = np.array([[5, 2, 3]])
+target = np.array([[1, 2, 3]])
+dims1 = [X_train.shape[1], 2]
 
 cnn = CNN(seed=seed)
 
 # test way to connect layers
 cnn.add_FullyConnectedLayer(
         dims1,
-        sigmoid, 
+        identity, 
         seed=seed
         )
 
 cnn.add_FullyConnectedLayer(
-        60,
-        sigmoid, 
+        5,
+        identity, 
         seed=seed
         )
 
-cnn.add_FullyConnectedLayer(
-        70,
-        sigmoid, 
-        seed=seed
-        )
+cnn.add_OutputLayer(3, identity, seed=seed)
 
-cnn.add_OutputLayer(1, sigmoid, seed=seed)
-
-cnn_a = cnn._feedforward(X_train)
-print("cnn")
+out_test = OutputLayer([1,1], identity, CostOLS, Adam)
+print(isinstance(out_test, FullyConnectedLayer))
+cnn_a = cnn.fit(X_train, target)
+print(f"{cnn_a=}")
 # TODO for some reason outputlayer makes FullyConnectedLayer work worse?
 # unsure, ill figure it out
 

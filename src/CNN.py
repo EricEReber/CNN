@@ -41,6 +41,9 @@ class CNN:
         # 'initialization of FullyConnectedLayer' to a queue. Layers in queue
         # are initialized when fit() is called, final layer in queue becomes
         # OutputLayer. Saves us from changing final layer every new layer.
+
+        # assert self.layers, "FullyConnectedLayer should not be first added layer"
+
         if scheduler is None:
             scheduler = self.scheduler
 
@@ -64,37 +67,150 @@ class CNN:
             [prev_nodes, nodes], output_func, self.cost_func, scheduler, seed
         )
         self.layers.append(output_layer)
-        print(output_layer.nodes, output_layer.prediction)
 
     def fit(
         self,
         X: np.ndarray,
         t: np.ndarray,
-        scheduler_class: Scheduler,
+        # scheduler_class: Scheduler,
         batches: int = 1,
         epochs: int = 100,
         lam: float = 0,
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
     ):
+        # for consecutive calls of fit()
+        for layer in self.layers:
+            layer._reset_weights()
 
-        # TODO: With the new code architecture, the fit method has to be updated in order
-        # to take advantage of the modular design
+        # setup 
+        if self.seed is not None:
+            np.random.seed(self.seed)
 
-        raise NotImplementedError
+        val_set = False
+        if X_val is not None and t_val is not None:
+            val_set = True
+
+        # creating arrays for score metrics
+        train_errors = np.empty(epochs)
+        train_errors.fill(np.nan)
+        val_errors = np.empty(epochs)
+        val_errors.fill(np.nan)
+
+        train_accs = np.empty(epochs)
+        train_accs.fill(np.nan)
+        val_accs = np.empty(epochs)
+        val_accs.fill(np.nan)
+
+        batch_size = X.shape[0] // batches
+
+        X, t = resample(X, t)
+
+        cost_function_train = self.cost_func(t)
+        if val_set:
+            cost_function_val = self.cost_func(t_val)
+
+        try:
+            for epoch in range(epochs):
+                for batch_num in range(batches):
+                    if batch_num == batches - 1:
+                        # If the for loop has reached the last batch_num, take all thats left
+                        X_batch = X[batch_num * batch_size :, :]
+                        t_batch = t[batch_num * batch_size :, :]
+                    else:
+                        X_batch = X[batch_num * batch_size : (batch_num + 1) * batch_size, :]
+                        t_batch = t[batch_num * batch_size : (batch_num + 1) * batch_size, :]
+
+                    self._feedforward(X_batch)
+                    self._backpropagate(t_batch, lam)
+
+                # reset schedulers for each epoch (some schedulers pass in this call)
+                for layer in self.layers:
+                    if isinstance(layer, FullyConnectedLayer):
+                        layer.reset_scheduler()
+
+                # computing performance metrics
+                pred_train = self.predict(X)
+                train_error = cost_function_train(pred_train)
+
+                train_errors[e] = train_error
+                if val_set:
+                    
+                    pred_val = self.predict(X_val)
+                    val_error = cost_function_val(pred_val)
+                    val_errors[e] = val_error
+
+                if self.classification:
+                    train_acc = self._accuracy(self.predict(X), t)
+                    train_accs[e] = train_acc
+                    if val_set:
+                        val_acc = self._accuracy(pred_val, t_val)
+                        val_accs[e] = val_acc
+
+                # printing progress bar
+                progression = e / epochs
+                print_length = self._progress_bar(
+                    progression,
+                    train_error=train_errors[e],
+                    train_acc=train_accs[e],
+                    val_error=val_errors[e],
+                    val_acc=val_accs[e],
+                )
+        except KeyboardInterrupt:
+            # allows for stopping training at any point and seeing the result
+            pass
+
+        # visualization of training progression (similiar to tensorflow progression bar)
+        sys.stdout.write("\r" + " " * print_length)
+        sys.stdout.flush()
+        self._progress_bar(
+            1,
+            train_error=train_errors[e],
+            train_acc=train_accs[e],
+            val_error=val_errors[e],
+            val_acc=val_accs[e],
+        )
+        sys.stdout.write("")
+
+        # return performance metrics for the entire run
+        scores = dict()
+
+        scores["train_errors"] = train_errors
+
+        if val_set:
+            scores["val_errors"] = val_errors
+
+        if self.classification:
+            scores["train_accs"] = train_accs
+
+            if val_set:
+                scores["val_accs"] = val_accs
+
+        return scores
+
+        # TODO add batches, val set
 
     def _feedforward(self, X: np.ndarray):
-        # TODO - Implement a version of feed forward that uses Layer-classes
-        # raise NotImplementedError
+
         a = X
         for layer in self.layers:
             a = layer._feedforward(a)
 
         return a
 
-    def _backpropagate(self, X, t, lam):
-        # TODO - Implement a version of backpropagation that uses Layer-classes
-        raise NotImplementedError
+    def _backpropagate(self, t, lam):
+        reversed_layers = self.layers[::-1]
+
+        for layer in reversed_layers:
+            if isinstance(layer, OutputLayer):
+                weights_next, delta_next = layer._backpropagate(t, lam)
+            elif isinstance(layer, FullyConnectedLayer):
+                weights_next, delta_next = layer._backpropagate(
+                    weights_next, delta_next, t, lam
+                )
+            else:
+                # TODO implement other types of layers
+                raise NotImplementedError
 
     def _accuracy(self, prediction: np.ndarray, target: np.ndarray):
         """
