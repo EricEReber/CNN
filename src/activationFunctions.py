@@ -4,6 +4,9 @@ from autograd import elementwise_grad
 """
 This file contains activation functions and their derivatives for neural networks
 """
+def identity(x):
+    return x
+
 def sigmoid(x):
     try:
         return 1.0 / (1 + np.exp(-x))
