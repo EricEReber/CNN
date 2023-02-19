@@ -36,9 +36,24 @@ def forward_test(image):
     plt.imshow(conv_rest[:,:,0,0], vmin=0,vmax=255)
     plt.show()
 
-def backward_test(): 
+def backward_test(X): 
+   
+    layer = Convolution2DLayer(
+            input_channels=3,
+            feature_maps=64, 
+            kernel_size=2, 
+            stride=2,
+            pad='same',
+            act_func=lambda x: x, 
+            seed=2023
+             )
+  
+   # Shape of output we're testing with is (128, 128, 64, 3) -> (height, width, feature_maps, num_images)
+    rand_grad = np.random.randn(128, 128, 64, 3)
 
-
+    layer._backpropagate(X, rand_grad)
+    
+    
 if __name__ == "__main__": 
 
     img_path = "/home/gregz/Files/CNN/data/luna.JPG"
@@ -51,5 +66,9 @@ if __name__ == "__main__":
     # plt.imshow(image, vmin=0, vmax=255, aspect='auto')
     # plt.show()
 
-    init_test()
-    forward_test(images)
+    # init_test()
+    # forward_test(images)
+    
+    backward_test(images)
+
+

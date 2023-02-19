@@ -321,12 +321,12 @@ class Convolution2DLayer(Layer):
 
         return self.act_func(output)
 
-    def _backpropagate(self, X, delta_next, lam):
+    def _backpropagate(self, X, delta_next):
 
         delta = np.zeros((X.shape))
-        kernel_grad = np.zeros((self.kernel_tensor))
+        kernel_grad = np.zeros((self.kernel_tensor.shape))
 
-        input = self._padding(X)
+        X_pad = self._padding(X)
 
         # Since an activation function is used at the output of the convolution layer, its derivative
         # has to be accounted for in the backpropagation -> as if ReLU a layer on its own.
@@ -334,7 +334,7 @@ class Convolution2DLayer(Layer):
         delta_next = act_derivative(delta_next)
 
         # The gradient received from the next layer also needs to be padded
-        delta_next = self.padding(delta_next)
+        delta_next = self._padding(delta_next)
 
         start = self.kernel_size // 2
         if self.kernel_size % 2 != 0:
@@ -342,12 +342,13 @@ class Convolution2DLayer(Layer):
         else:
             end = start
 
-        for img in range(input.shape[3]):
+        for img in range(X.shape[3]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(start, input.shape[0], self.stride):
-                        for y in range(start, input.shape[1], self.stride):
-
+                    for x in range(start, X.shape[0]+end, self.stride):
+                        for y in range(start, X.shape[1]+end, self.stride):
+                            
+                            print(f'computing x:{x}, y:{y}')
                             delta[x, y, chin, img] = np.sum(
                                 delta_next[
                                     x - start : x + end, y - start : y + end, chout, img
@@ -361,7 +362,7 @@ class Convolution2DLayer(Layer):
                                 for k_y in range(self.kernel_size):
 
                                     kernel_grad[chin, chout, k_x, k_y] = np.sum(
-                                        input[
+                                        X_pad[
                                             x - start : x + end,
                                             y - start : y + end,
                                             chin,
@@ -369,15 +370,14 @@ class Convolution2DLayer(Layer):
                                         ]
                                         * delta_next[
                                             x - start : x + end,
-                                            y - start,
-                                            y + end,
+                                            y - start : y + end,
                                             chout,
                                             img,
                                         ]
                                     )
-
+                                    print(f'update{img}')
                                     # Each filter is updated
-                                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad
+                                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[chin, chout,:,:]
 
         return delta
 
