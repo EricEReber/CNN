@@ -377,12 +377,6 @@ class Convolution2DLayer(Layer):
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
         if self.pad == "same":
-            print(batch.shape)
-            new_height = batch[:, :, 0, 0].shape[0] + (self.kernel_size // 2) * 2
-            new_width = batch[:, :, 0, 0].shape[1] + (self.kernel_size // 2) * 2
-            k_height = self.kernel_size // 2
-
-        if self.pad == "same":
 
             new_height = batch[:, :, 0, 0].shape[0] + (self.kernel_size // 2) * 2
             new_width = batch[:, :, 0, 0].shape[1] + (self.kernel_size // 2) * 2
