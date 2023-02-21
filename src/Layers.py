@@ -5,7 +5,6 @@ from autograd import grad
 from typing import Callable
 from src.activationFunctions import *
 from src.Schedulers import *
-
 """
 Interface contatining all the layers that will be available for construction of 
 a models architecture.
@@ -286,7 +285,7 @@ class Convolution2DLayer(Layer):
                         for y in range(start, X.shape[1]+end, self.stride): 
 
                             output[x-start, y-start, chout, img] = \
-                                np.sum(X_pad[x - start : x+end + end, y - start : y + end, chin, img] 
+                                np.sum(X_pad[x - start : x+end, y - start : y + end, chin, img] 
                                 * self.kernel_tensor[chin, chout, :, :])
                             
 
@@ -296,28 +295,14 @@ class Convolution2DLayer(Layer):
         else:
             end = start
 
-        for img in range(input.shape[3]):
-            for chin in range(self.input_channels):
-                for chout in range(self.feature_maps):
-                    for x in range(start, input.shape[0], self.stride):
-                        for y in range(start, input.shape[1], self.stride):
-
-                            output[x - start, y - start, chout, img] = np.sum(
-                                input[
-                                    x - start : x + end, y - start : y + end, chin, img
-                                ]
-                                * self.kernel_tensor[chin, chout, :, :]
-                            )
-
-                            # Can also be written in a less intuitive way by introducing two extra for loops:
-                            """
-                            for k_x in range(self.kernel_size): 
-                                for k_y in range(self.kernel_size): 
-                                    output[x, y, chout, img] += self.kernel_tensor[chin, chout, kx, ky] * input[x+k_x, y+k_y, chin, img]
-                            """
-                            # Pay attention to the fact that we're not rotating the kernel by 180 degrees when filtering the image in
-                            # the convolutional layer, as convolution in terms of Machine Learning is a procedure known as cross-correlation
-                            # in image processing and signal processing
+        """
+        for k_x in range(self.kernel_size): 
+            for k_y in range(self.kernel_size): 
+                output[x, y, chout, img] += self.kernel_tensor[chin, chout, kx, ky] * input[x+k_x, y+k_y, chin, img]
+        """
+        # Pay attention to the fact that we're not rotating the kernel by 180 degrees when filtering the image in
+        # the convolutional layer, as convolution in terms of Machine Learning is a procedure known as cross-correlation
+        # in image processing and signal processing
 
         return self.act_func(output)
 
@@ -341,14 +326,13 @@ class Convolution2DLayer(Layer):
             end = start + 1
         else:
             end = start
-
+        
         for img in range(X.shape[3]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
                     for x in range(start, X.shape[0]+end, self.stride):
                         for y in range(start, X.shape[1]+end, self.stride):
                             
-                            print(f'computing x:{x}, y:{y}')
                             delta[x, y, chin, img] = np.sum(
                                 delta_next[
                                     x - start : x + end, y - start : y + end, chout, img
@@ -360,7 +344,7 @@ class Convolution2DLayer(Layer):
 
                             for k_x in range(self.kernel_size):
                                 for k_y in range(self.kernel_size):
-
+        
                                     kernel_grad[chin, chout, k_x, k_y] = np.sum(
                                         X_pad[
                                             x - start : x + end,
@@ -375,9 +359,8 @@ class Convolution2DLayer(Layer):
                                             img,
                                         ]
                                     )
-                                    print(f'update{img}')
                                     # Each filter is updated
-                                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[chin, chout,:,:]
+                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[chin, chout,:,:]
 
         return delta
 
