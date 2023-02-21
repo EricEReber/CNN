@@ -19,8 +19,8 @@ warnings.simplefilter("error")
 class CNN:
     def __init__(
         self,
-        cost_func: Callable = CostOLS,
-        scheduler: Scheduler = Adam,
+        cost_func: Callable = CostLogReg,
+        scheduler: Scheduler = Adam(1e-4, 0.9, 0.999),
         seed: int = None,
     ):
         self.layers = list()
@@ -29,31 +29,26 @@ class CNN:
         self.seed = seed
         self.schedulers_weight = list()
         self.schedulers_bias = list()
-        # self.a_matrices = list()
-        # self.z_matrices = list()
-        self.classification = None
+        self.prediction = None
 
         self._set_classification()
 
     def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None, seed=None):
-        # TODO efficient way to replace final FullyConnectedLayer with Output
-        # future idea: have this function (and similar functions) add
-        # 'initialization of FullyConnectedLayer' to a queue. Layers in queue
-        # are initialized when fit() is called, final layer in queue becomes
-        # OutputLayer. Saves us from changing final layer every new layer.
-
-        # assert self.layers, "FullyConnectedLayer should not be first added layer"
-
         if scheduler is None:
             scheduler = self.scheduler
 
-        if self.layers:
+        if not self.layers:
+            layer = FullyConnectedLayer(
+                [0, nodes], act_func, scheduler, seed, is_first_layer=True
+            )
+
+        elif not isinstance(self.layers[-1], FullyConnectedLayer):
+            layer = FullyConnectedLayer(
+                [0, nodes], act_func, scheduler, seed, is_first_layer=True
+            )
+        else:
             prev_nodes = self.layers[-1].nodes[1]
             layer = FullyConnectedLayer([prev_nodes, nodes], act_func, scheduler, seed)
-        else:
-            # only for testing, FullyConnectedLayer should always follow
-            # FullyConnectedLayer or FlattenLayer
-            layer = FullyConnectedLayer(nodes, act_func, scheduler, seed)
         self.layers.append(layer)
 
     def add_OutputLayer(self, nodes, output_func, scheduler=None, seed=None):
@@ -67,12 +62,13 @@ class CNN:
             [prev_nodes, nodes], output_func, self.cost_func, scheduler, seed
         )
         self.layers.append(output_layer)
+        self.prediction = output_layer.get_prediction()
+
 
     def fit(
         self,
         X: np.ndarray,
         t: np.ndarray,
-        # scheduler_class: Scheduler,
         batches: int = 1,
         epochs: int = 100,
         lam: float = 0,
@@ -83,7 +79,7 @@ class CNN:
         for layer in self.layers:
             layer._reset_weights()
 
-        # setup 
+        # setup
         if self.seed is not None:
             np.random.seed(self.seed)
 
@@ -118,8 +114,12 @@ class CNN:
                         X_batch = X[batch_num * batch_size :, :]
                         t_batch = t[batch_num * batch_size :, :]
                     else:
-                        X_batch = X[batch_num * batch_size : (batch_num + 1) * batch_size, :]
-                        t_batch = t[batch_num * batch_size : (batch_num + 1) * batch_size, :]
+                        X_batch = X[
+                            batch_num * batch_size : (batch_num + 1) * batch_size, :
+                        ]
+                        t_batch = t[
+                            batch_num * batch_size : (batch_num + 1) * batch_size, :
+                        ]
 
                     self._feedforward(X_batch)
                     self._backpropagate(t_batch, lam)
@@ -127,35 +127,35 @@ class CNN:
                 # reset schedulers for each epoch (some schedulers pass in this call)
                 for layer in self.layers:
                     if isinstance(layer, FullyConnectedLayer):
-                        layer.reset_scheduler()
+                        layer._reset_scheduler()
 
                 # computing performance metrics
-                pred_train = self.predict(X)
-                train_error = cost_function_train(pred_train)
+                if self.prediction:
+                    pred_train = self.predict(X)
+                    train_error = cost_function_train(pred_train)
 
-                train_errors[e] = train_error
-                if val_set:
-                    
-                    pred_val = self.predict(X_val)
-                    val_error = cost_function_val(pred_val)
-                    val_errors[e] = val_error
-
-                if self.classification:
-                    train_acc = self._accuracy(self.predict(X), t)
-                    train_accs[e] = train_acc
+                    train_errors[epoch] = train_error
                     if val_set:
-                        val_acc = self._accuracy(pred_val, t_val)
-                        val_accs[e] = val_acc
+                        pred_val = self.predict(X_val)
+                        val_error = cost_function_val(pred_val)
+                        val_errors[epoch] = val_error
 
-                # printing progress bar
-                progression = e / epochs
-                print_length = self._progress_bar(
-                    progression,
-                    train_error=train_errors[e],
-                    train_acc=train_accs[e],
-                    val_error=val_errors[e],
-                    val_acc=val_accs[e],
-                )
+                    if self.prediction != "Regression":
+                        train_acc = self._accuracy(self.predict(X), t)
+                        train_accs[epoch] = train_acc
+                        if val_set:
+                            val_acc = self._accuracy(pred_val, t_val)
+                            val_accs[epoch] = val_acc
+
+                    # printing progress bar
+                    progression = epoch / epochs
+                    print_length = self._progress_bar(
+                        progression,
+                        train_error=train_errors[epoch],
+                        train_acc=train_accs[epoch],
+                        val_error=val_errors[epoch],
+                        val_acc=val_accs[epoch],
+                    )
         except KeyboardInterrupt:
             # allows for stopping training at any point and seeing the result
             pass
@@ -165,10 +165,10 @@ class CNN:
         sys.stdout.flush()
         self._progress_bar(
             1,
-            train_error=train_errors[e],
-            train_acc=train_accs[e],
-            val_error=val_errors[e],
-            val_acc=val_accs[e],
+            train_error=train_errors[epoch],
+            train_acc=train_accs[epoch],
+            val_error=val_errors[epoch],
+            val_acc=val_accs[epoch],
         )
         sys.stdout.write("")
 
@@ -192,7 +192,9 @@ class CNN:
 
     def _feedforward(self, X: np.ndarray):
 
-        a = X
+        bias = np.ones((X.shape[0], 1)) * 0.01
+        a = np.hstack([bias, X])
+
         for layer in self.layers:
             a = layer._feedforward(a)
 
@@ -201,16 +203,29 @@ class CNN:
     def _backpropagate(self, t, lam):
         reversed_layers = self.layers[::-1]
 
-        for layer in reversed_layers:
+        for i in range(len(reversed_layers) - 1):
+            layer = reversed_layers[i]
+            next_layer = reversed_layers[i + 1]
             if isinstance(layer, OutputLayer):
-                weights_next, delta_next = layer._backpropagate(t, lam)
+                weights_next, delta_next = layer._backpropagate(
+                    t, next_layer.get_next_a(), lam
+                )
             elif isinstance(layer, FullyConnectedLayer):
                 weights_next, delta_next = layer._backpropagate(
-                    weights_next, delta_next, t, lam
+                    weights_next, delta_next, next_layer.get_next_a(), lam
                 )
             else:
                 # TODO implement other types of layers
                 raise NotImplementedError
+
+    def predict(self, X: np.ndarray, *, threshold=0.5):
+
+        predict = self._feedforward(X)
+
+        if self.prediction == "Binary":
+            return np.where(predict > threshold, 1, 0)
+        else:
+            return predict
 
     def _accuracy(self, prediction: np.ndarray, target: np.ndarray):
         """

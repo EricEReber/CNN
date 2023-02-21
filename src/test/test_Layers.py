@@ -35,36 +35,42 @@ seed = 2023
 
 adam_scheduler= Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
-X_train = np.array([[5, 2, 3]])
-target = np.array([[1, 2, 3]])
-dims1 = [X_train.shape[1], 2]
 
 cnn = CNN(seed=seed)
 
 # test way to connect layers
 cnn.add_FullyConnectedLayer(
-        dims1,
-        identity, 
+        X_train.shape[1],
+        RELU, 
         seed=seed
         )
 
 cnn.add_FullyConnectedLayer(
-        5,
-        identity, 
+        20,
+        RELU, 
         seed=seed
         )
 
-cnn.add_OutputLayer(3, identity, seed=seed)
+cnn.add_FullyConnectedLayer(
+        20,
+        RELU, 
+        seed=seed
+        )
 
-out_test = OutputLayer([1,1], identity, CostOLS, Adam)
-print(isinstance(out_test, FullyConnectedLayer))
-cnn_a = cnn.fit(X_train, target)
-print(f"{cnn_a=}")
+cnn.add_OutputLayer(1, sigmoid, seed=seed)
+
+cnn.fit(X_train, t_train, epochs=300)
+pred = cnn.predict(X_train)
+acc = cnn._accuracy(pred, t_train)
+print(f"{acc=}")
+
+
+
 # TODO for some reason outputlayer makes FullyConnectedLayer work worse?
 # unsure, ill figure it out
 
 
-ffnn = FFNN(dims1, sigmoid, seed=seed)
+ffnn = FFNN([X_train.shape[1], 2, 5], sigmoid, seed=seed)
 ffnn_a = ffnn._feedforward(X_train)
 
 # TODO this should work, unsure what problem is

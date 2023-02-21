@@ -5,6 +5,7 @@ from autograd import grad
 from typing import Callable
 from src.activationFunctions import *
 from src.Schedulers import *
+
 """
 Interface contatining all the layers that will be available for construction of 
 a models architecture.
@@ -33,12 +34,14 @@ class FullyConnectedLayer(Layer):
         act_func: Callable,
         scheduler: Scheduler,
         seed=None,
+        is_first_layer=False,
     ):
         super().__init__(seed)
         self.nodes = nodes
         self.act_func = act_func
         self.scheduler_weight = copy(scheduler)
         self.scheduler_bias = copy(scheduler)
+        self.is_first_layer = is_first_layer
 
         self.weights = None
         self.a_matrix = None
@@ -48,19 +51,23 @@ class FullyConnectedLayer(Layer):
 
     def _feedforward(self, X):
 
-        if len(X.shape) == 1:
-            X = X.reshape((1, X.shape[0]))
+        if self.is_first_layer:
+            self.a_matrix = X
+            self.z_matrix = X
+        else:
+            if len(X.shape) == 1:
+                X = X.reshape((1, X.shape[0]))
 
-        # Adding bias to the data
-        bias = np.ones((X.shape[0], 1)) * 0.01
-        X = np.hstack([bias, X])
+            self.z_matrix = X @ self.weights
 
-        self.z_matrix = X @ self.weights
-        self.a_matrix = self.act_func(self.z_matrix)
+            self.a_matrix = self.act_func(self.z_matrix)
+
+            bias = np.ones((X.shape[0], 1)) * 0.01
+            self.a_matrix = np.hstack([bias, self.a_matrix])
 
         return self.a_matrix
 
-    def _backpropagate(self, weights_next, delta_next, lam):
+    def _backpropagate(self, weights_next, delta_next, a_next, lam):
 
         activation_derivative = derivate(self.act_func)
 
@@ -70,28 +77,27 @@ class FullyConnectedLayer(Layer):
 
         gradient_weights = np.zeros(
             (
-                self.a_matrix[:, 1:].shape[0],
-                self.a_matrix[:, 1:].shape[1],
+                a_next[:, 1:].shape[0],
+                a_next[:, 1:].shape[1],
                 delta_matrix.shape[1],
             )
         )
 
         for i in range(len(delta_matrix)):
-            gradient_weights[i, :, :] = np.outer(
-                self.a_matrix[i, 1:], delta_matrix[i, :]
-            )
+            gradient_weights[i, :, :] = np.outer(a_next[i, 1:], delta_matrix[i, :])
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
+        gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
 
         # regularization term
-        gradient_matrix += self.weights[1:, :] * lam
+        gradient_weights += self.weights[1:, :] * lam
 
         # TODO: This part needs changing! Scheduler should update weights and bias simultaneously,
         # and not require two instances of the same class for the weight and bias update task
         update_matrix = np.vstack(
             [
-                self.scheduler_weight.update_change(gradient_matrix),
+                self.scheduler_weight.update_change(gradient_weights),
                 self.scheduler_bias.update_change(gradient_bias),
             ]
         )
@@ -105,11 +111,16 @@ class FullyConnectedLayer(Layer):
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        self.weights = np.random.randn(self.nodes[0] + 1, self.nodes[1])
+        if not self.is_first_layer:
+            bias = 1
+            self.weights = np.random.randn(self.nodes[0] + bias, self.nodes[1])
 
     def _reset_scheduler(self):
         self.scheduler_weight.reset()
         self.scheduler_bias.reset()
+
+    def get_next_a(self):
+        return self.a_matrix
 
 
 # TODO: Test if OutputLayer inherits the constructor in the desired way, or if some changes need to be applied.
@@ -138,17 +149,13 @@ class OutputLayer(FullyConnectedLayer):
             X = X.reshape((1, X.shape[0]))
 
         # Adding bias to the data
-        bias = np.ones((X.shape[0], 1)) * 0.01
-        X = np.hstack([bias, X])
-
         self.z_matrix = X @ self.weights
         self.a_matrix = self.act_func(self.z_matrix)
 
         return self.a_matrix
 
-    def _backpropagate(self, target, lam):
+    def _backpropagate(self, target, a_next, lam):
 
-        print(f"{self.a_matrix.shape=}")
         # Again, remember that in the OutputLayer the activation function is the output function
         activation_derivative = derivate(self.act_func)
 
@@ -162,31 +169,26 @@ class OutputLayer(FullyConnectedLayer):
 
         gradient_weights = np.zeros(
             (
-                self.a_matrix[:, 1:].shape[0],
-                self.a_matrix[:, 1:].shape[1],
+                a_next[:, 1:].shape[0],
+                a_next[:, 1:].shape[1],
                 delta_matrix.shape[1],
             )
         )
 
         for i in range(len(delta_matrix)):
-            gradient_weights[i, :, :] = np.outer(
-                self.a_matrix[i, 1:], delta_matrix[i, :]
-            )
+            gradient_weights[i, :, :] = np.outer(a_next[i, 1:], delta_matrix[i, :])
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
+        gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
 
         # regularization term
-        print(f"{gradient_weights.shape=}")
-        print(f"{self.weights[1:, :].shape=}")
         gradient_weights += self.weights[1:, :] * lam
 
-        # TODO: This part needs changing! Scheduler should update weights and bias simultaneously,
-        # and not require two instances of the same class for the weight and bias update task
         update_matrix = np.vstack(
             [
-                self.scheduler_weight.update_change(gradient_matrix),
                 self.scheduler_bias.update_change(gradient_bias),
+                self.scheduler_weight.update_change(gradient_weights),
             ]
         )
 
@@ -204,8 +206,7 @@ class OutputLayer(FullyConnectedLayer):
             return predict
 
     def set_prediction(self):
-
-        if self.act_func.__name__ is None:
+        if self.act_func.__name__ is None or self.act_func.__name__ == "identity":
             self.prediction = "Regression"
         elif self.act_func.__name__ == "sigmoid" or self.act_func.__name__ == "tanh":
             self.prediction = "Binary"
@@ -223,6 +224,9 @@ class OutputLayer(FullyConnectedLayer):
     def _reset_scheduler(self):
         self.scheduler_weight.reset()
         self.scheduler_bias.reset()
+
+    def get_prediction(self):
+        return self.prediction
 
 
 class Convolution2DLayer(Layer):
@@ -262,7 +266,7 @@ class Convolution2DLayer(Layer):
                 )
 
     def _feedforward(self, X):
-        
+
         X_pad = self._padding(X)
 
         input = self._padding(X)
@@ -271,23 +275,25 @@ class Convolution2DLayer(Layer):
 
         # Will need this parameter for backpropagation
         self.output_shape = output.shape
-        
-        start = self.kernel_size//2
-        # if self.kernel_size % 2 != 0: 
-        #     end = start + 1 
-        # else: 
-        end = start 
 
-        for img in range(X.shape[3]): 
-            for chin in range(self.input_channels): 
-                for chout in range(self.feature_maps): 
-                    for x in range(start, X.shape[0]+end, self.stride): 
-                        for y in range(start, X.shape[1]+end, self.stride): 
+        start = self.kernel_size // 2
+        # if self.kernel_size % 2 != 0:
+        #     end = start + 1
+        # else:
+        end = start
 
-                            output[x-start, y-start, chout, img] = \
-                                np.sum(X_pad[x - start : x+end, y - start : y + end, chin, img] 
-                                * self.kernel_tensor[chin, chout, :, :])
-                            
+        for img in range(X.shape[3]):
+            for chin in range(self.input_channels):
+                for chout in range(self.feature_maps):
+                    for x in range(start, X.shape[0] + end, self.stride):
+                        for y in range(start, X.shape[1] + end, self.stride):
+
+                            output[x - start, y - start, chout, img] = np.sum(
+                                X_pad[
+                                    x - start : x + end, y - start : y + end, chin, img
+                                ]
+                                * self.kernel_tensor[chin, chout, :, :]
+                            )
 
         start = self.kernel_size // 2
         if self.kernel_size % 2 != 0:
@@ -326,13 +332,13 @@ class Convolution2DLayer(Layer):
             end = start + 1
         else:
             end = start
-        
+
         for img in range(X.shape[3]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(start, X.shape[0]+end, self.stride):
-                        for y in range(start, X.shape[1]+end, self.stride):
-                            
+                    for x in range(start, X.shape[0] + end, self.stride):
+                        for y in range(start, X.shape[1] + end, self.stride):
+
                             delta[x, y, chin, img] = np.sum(
                                 delta_next[
                                     x - start : x + end, y - start : y + end, chout, img
@@ -344,7 +350,7 @@ class Convolution2DLayer(Layer):
 
                             for k_x in range(self.kernel_size):
                                 for k_y in range(self.kernel_size):
-        
+
                                     kernel_grad[chin, chout, k_x, k_y] = np.sum(
                                         X_pad[
                                             x - start : x + end,
@@ -360,7 +366,9 @@ class Convolution2DLayer(Layer):
                                         ]
                                     )
                                     # Each filter is updated
-                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[chin, chout,:,:]
+                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[
+                        chin, chout, :, :
+                    ]
 
         return delta
 
@@ -368,11 +376,11 @@ class Convolution2DLayer(Layer):
 
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
-        if self.pad == 'same':
+        if self.pad == "same":
             print(batch.shape)
-            new_height = batch[:,:,0,0].shape[0] + (self.kernel_size//2)*2
-            new_width = batch[:,:,0,0].shape[1] + (self.kernel_size//2)*2
-            k_height = self.kernel_size//2
+            new_height = batch[:, :, 0, 0].shape[0] + (self.kernel_size // 2) * 2
+            new_width = batch[:, :, 0, 0].shape[1] + (self.kernel_size // 2) * 2
+            k_height = self.kernel_size // 2
 
         if self.pad == "same":
 
