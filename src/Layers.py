@@ -103,6 +103,7 @@ class FullyConnectedLayer(Layer):
         )
 
         self.weights -= update_matrix
+        # print(f"{self.weights=}")
 
         return self.weights, delta_matrix
 
@@ -119,7 +120,7 @@ class FullyConnectedLayer(Layer):
         self.scheduler_weight.reset()
         self.scheduler_bias.reset()
 
-    def get_next_a(self):
+    def get_prev_a(self):
         return self.a_matrix
 
 
@@ -180,7 +181,6 @@ class OutputLayer(FullyConnectedLayer):
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
-        gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
 
         # regularization term
         gradient_weights += self.weights[1:, :] * lam
@@ -192,7 +192,9 @@ class OutputLayer(FullyConnectedLayer):
             ]
         )
 
+        # print(f"{update_matrix=}")
         self.weights -= update_matrix
+        # print(f"{self.weights=}")
 
         return self.weights, delta_matrix
 
@@ -266,7 +268,7 @@ class Convolution2DLayer(Layer):
                 )
 
     def _feedforward(self, X):
-        
+
         """
         X = [batch_size, input_maps, img_height, img_width]
         """
@@ -305,6 +307,9 @@ class Convolution2DLayer(Layer):
 
         return self.act_func(output)
 
+    def _opt_feedforward(self, X):
+
+        X_pad = self._padding(X)
 
     def _backpropagate(self, X, delta_next):
 
@@ -373,7 +378,7 @@ class Convolution2DLayer(Layer):
         if self.pad == "same":
 
             new_height = batch[0, 0, :, :].shape[0] + (kernel_size // 2) * 2
-            new_width = batch[0, 0, :, :].shape[1]  + (kernel_size // 2) * 2
+            new_width = batch[0, 0, :, :].shape[1] + (kernel_size // 2) * 2
             k_height = kernel_size // 2
 
             new_tensor = np.ndarray(
@@ -382,23 +387,20 @@ class Convolution2DLayer(Layer):
 
             for img in range(batch.shape[0]):
 
-                padded_img = np.zeros(
-                        (batch.shape[1], new_height, new_width)
-                )
-                padded_img[ :, 
-                    k_height : new_height - k_height, k_height : new_width - k_height
+                padded_img = np.zeros((batch.shape[1], new_height, new_width))
+                padded_img[
+                    :, k_height : new_height - k_height, k_height : new_width - k_height
                 ] = batch[img, :, :, :]
                 new_tensor[img, :, :, :] = padded_img[:, :, :]
 
-        return new_tensor
+            return new_tensor
 
         else:
             return batch
 
 
-def Convolution2DLayerOPT(Convolution2DLayer): 
-
-   def __init__(
+class Convolution2DLayerOPT(Convolution2DLayer):
+    def __init__(
         self,
         input_channels,  # number of maps the input is split into
         feature_maps,  # also known as feature maps
@@ -407,66 +409,124 @@ def Convolution2DLayerOPT(Convolution2DLayer):
         pad,
         act_func: Callable,
         seed=None,
-        ): 
-       super().__init__(self, seed, kernel_size, stride, pad, act_func, seed)
+    ):
+        super().__init__(self, seed, kernel_size, stride, pad, act_func, seed)
 
-    
     def _extract_windows(self, batch, kernel_size, stride=1):
-        
+
         # pad the images
         batch_pad = self._padding(batch, kernel_size)
-        
+
         windows = []
         img_height, img_width = batch.shape[2:]
 
         # For each location in the image...
-        for h in range(kernel_size//2, img_height+1, stride):
-            for w in range(kernel_size//2, img_width+1, stride):
+        for h in range(kernel_size // 2, img_height + 1, stride):
+            for w in range(kernel_size // 2, img_width + 1, stride):
 
                 # ...get an image patch of size [fil_size, fil_size]
-                window = batch_pad[:, :, h-kernel_size//2:h+kernel_size//2+1, w-kernel_size//2:w+kernel_size//2+1]
+                window = batch_pad[
+                    :,
+                    :,
+                    h - kernel_size // 2 : h + kernel_size // 2 + 1,
+                    w - kernel_size // 2 : w + kernel_size // 2 + 1,
+                ]
                 windows.append(window)
+
+    def _get_image_patches2(self, batch, filter_dim):
+        # pad the images
+        batch_padded = np.pad(
+            batch,
+            (
+                (0, 0),
+                (0, 0),
+                (filter_dim // 2, filter_dim // 2),
+                (filter_dim // 2, filter_dim // 2),
+            ),
+            mode="constant",
+        )
+
+        # get all patches using numpy's stride_tricks
+        batch_size, channels, img_width, img_height = imgs_batch_pad.shape
+        patch_shape = (
+            batch_size,
+            channels,
+            fil_size,
+            fil_size,
+            img_width - fil_size + 1,
+            img_height - fil_size + 1,
+        )
+        patch_strides = (
+            channels * img_width * img_height,
+            img_width * img_height,
+            img_width,
+            1,
+            img_height,
+            1,
+        )
+        patches = np.lib.stride_tricks.as_strided(
+            imgs_batch_pad, shape=patch_shape, strides=patch_strides
+        )
+
+        # reshape and return the patches
+        patches = patches.transpose(4, 5, 0, 1, 2, 3)
 
         # [img_height * img_width, batch_size, n_channels, fil_size, fil_size]
         return np.stack(windows)
 
     def _feedforward(self, batch):
-        
+
         kernel = self.kernel_tensor
-         
+
         windows = self._extract_windows(batch, kernel.shape[2])
-        windows = windows.transpose(1, 0, 2, 3, 4).reshape(batch.shape[0], batch.shape[2] * batch.shape[3], -1)
+        windows = windows.transpose(1, 0, 2, 3, 4).reshape(
+            batch.shape[0], batch.shape[2] * batch.shape[3], -1
+        )
 
-        kernel = kernel.transpose(0, 2, 3, 1).reshape(kernel.shape[0]*kernel.shape[2]*kernel.shape[3], -1) 
+        kernel = kernel.transpose(0, 2, 3, 1).reshape(
+            kernel.shape[0] * kernel.shape[2] * kernel.shape[3], -1
+        )
 
-        output = (windows@kernel).reshape(batch.shape[0], batch.shape[2], batch.shape[3], -1)
+        output = (windows @ kernel).reshape(
+            batch.shape[0], batch.shape[2], batch.shape[3], -1
+        )
 
         # The output is reshaped and rearranged to appropriate shape
         return self.act_func(output.transpose(0, 3, 1, 2))
 
     def _backpropagate(self, batch, output_grad):
-        
+
         kernel = self.kernel_tensor
         # Computing the kernel gradient
-        windows = _extract_windows(batch, kernel.shape[2]).reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
-        output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
+        windows = _extract_windows(batch, kernel.shape[2]).reshape(
+            batch.shape[0] * batch.shape[2] * batch.shape[3], -1
+        )
+        output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(
+            batch.shape[0] * batch.shape[2] * batch.shape[3], -1
+        )
 
-        kernel_grad = (windows.T@output_grad_tr).reshape(kernel.shape[0], kernel.shape[2], kernel.shape[3], kernel.shape[1])
+        kernel_grad = (windows.T @ output_grad_tr).reshape(
+            kernel.shape[0], kernel.shape[2], kernel.shape[3], kernel.shape[1]
+        )
         kernel_grad = kernel_grad.transpose(0, 3, 1, 2)
 
-        # Computing the input gradient 
-        windows = _extract_windows(output_grad, kernel.shape[2]).transpose(1, 0, 2, 3, 4)
+        # Computing the input gradient
+        windows = _extract_windows(output_grad, kernel.shape[2]).transpose(
+            1, 0, 2, 3, 4
+        )
         windows = windows.reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
 
         kernel_r = kernel.reshape(batch.shape[1], -1)
-        input_grad = (windows@kernel_r.T).reshape(batch.shape[0], batch.shape[2], batch.shape[3], kernel.shape[0])
-        input_grad = input_grad.transpose(0, 3, 1, 2) 
-        
-        # Update the weights in the kernel 
-        self.kernel_tensor -= kernel_grad 
-        
+        input_grad = (windows @ kernel_r.T).reshape(
+            batch.shape[0], batch.shape[2], batch.shape[3], kernel.shape[0]
+        )
+        input_grad = input_grad.transpose(0, 3, 1, 2)
+
+        # Update the weights in the kernel
+        self.kernel_tensor -= kernel_grad
+
         # Output the gradient to propagate backwards
-        return input_grad 
+        return input_grad
 
 
 class Pooling2DLayer(Layer):

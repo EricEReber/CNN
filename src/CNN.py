@@ -64,7 +64,6 @@ class CNN:
         self.layers.append(output_layer)
         self.prediction = output_layer.get_prediction()
 
-
     def fit(
         self,
         X: np.ndarray,
@@ -188,8 +187,6 @@ class CNN:
 
         return scores
 
-        # TODO add batches, val set
-
     def _feedforward(self, X: np.ndarray):
 
         bias = np.ones((X.shape[0], 1)) * 0.01
@@ -205,14 +202,14 @@ class CNN:
 
         for i in range(len(reversed_layers) - 1):
             layer = reversed_layers[i]
-            next_layer = reversed_layers[i + 1]
+            prev_layer = reversed_layers[i + 1]
             if isinstance(layer, OutputLayer):
                 weights_next, delta_next = layer._backpropagate(
-                    t, next_layer.get_next_a(), lam
+                    t, prev_layer.get_prev_a(), lam
                 )
             elif isinstance(layer, FullyConnectedLayer):
                 weights_next, delta_next = layer._backpropagate(
-                    weights_next, delta_next, next_layer.get_next_a(), lam
+                    weights_next, delta_next, prev_layer.get_prev_a(), lam
                 )
             else:
                 # TODO implement other types of layers

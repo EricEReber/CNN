@@ -7,6 +7,7 @@ from src.FFNN import FFNN
 from src.CNN import CNN
 from src.costFunctions import CostOLS
 import autograd.numpy as np
+
 np.random.seed(2023)
 
 """
@@ -21,49 +22,38 @@ cancer_t = cancer_t.reshape(cancer_t.shape[0], 1)
 
 X_train, X_val, t_train, t_val = train_test_split(cancer_X, cancer_t)
 scaler = MinMaxScaler()
-scaler.fit(X_train) 
-X_train = scaler.transform(X_train) 
-X_val = scaler.transform(X_val) 
+scaler.fit(X_train)
+X_train = scaler.transform(X_train)
+X_val = scaler.transform(X_val)
 
 rho = 0.9
 rho2 = 0.999
-eta = 1e-4
+eta = 1e-3
 lam = 1e-4
 momentum = 0.9
+batches = 10
+epochs = 200
 
-seed = 2023 
+seed = 2023
 
-adam_scheduler= Adam(eta, rho, rho2)
+adam_scheduler = Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
 
-cnn = CNN(seed=seed)
+cnn = CNN(scheduler=adam_scheduler, seed=seed)
 
 # test way to connect layers
-cnn.add_FullyConnectedLayer(
-        X_train.shape[1],
-        RELU, 
-        seed=seed
-        )
+cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU, seed=seed)
 
-cnn.add_FullyConnectedLayer(
-        20,
-        RELU, 
-        seed=seed
-        )
+cnn.add_FullyConnectedLayer(20, LRELU, seed=seed)
 
-cnn.add_FullyConnectedLayer(
-        20,
-        RELU, 
-        seed=seed
-        )
+cnn.add_FullyConnectedLayer(20, LRELU, seed=seed)
 
 cnn.add_OutputLayer(1, sigmoid, seed=seed)
 
-cnn.fit(X_train, t_train, epochs=300)
+cnn.fit(X_train, t_train, lam=lam, batches=batches, epochs=epochs)
 pred = cnn.predict(X_train)
 acc = cnn._accuracy(pred, t_train)
 print(f"{acc=}")
-
 
 
 # TODO for some reason outputlayer makes FullyConnectedLayer work worse?
