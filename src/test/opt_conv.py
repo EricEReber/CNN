@@ -1,35 +1,16 @@
 import numpy as np
 import imageio.v3 as imageio 
 import matplotlib.pyplot as plt
-from alt_backprog_conv import _pad_2d_channel 
+from alt_backprog_conv import _pad_2d_channel, _output_matmul, _get_image_patches
+from alt_backprog_conv import _get_image_patches as _extract_windows
 
-def _extract_windows(imgs_batch, fil_size):
-    '''
-    imgs_batch: [batch_size, channels, img_width, img_height]
-    fil_size: int
-    '''
-    # pad the images
-    imgs_batch_pad = np.pad(imgs_batch, ((0,0),(0,0),(fil_size//2,fil_size//2),(fil_size//2,fil_size//2)), mode='constant')
-
-    # get all patches using numpy's stride_tricks
-    batch_size, channels, img_width, img_height = imgs_batch_pad.shape
-
-    patch_shape = (batch_size, channels, fil_size, fil_size, img_width-fil_size+1, img_height-fil_size+1)
-
-    patch_strides = (channels*img_width*img_height, img_width*img_height, img_width, 1, img_height, 1)
-
-    patches = np.lib.stride_tricks.as_strided(imgs_batch_pad, shape=patch_shape, strides=patch_strides)
-
-    # reshape and return the patches
-    patches = patches.transpose(4,5,0,1,2,3)
-    return patches.reshape(-1, batch_size, channels, fil_size, fil_size)
 
 def _feedforward(batch, kernel):
 
-    windows = _extract_windows(X, kernel.shape[2])
-    windows = windows.transpose(1, 0, 2, 3, 4).reshape(batch.shape[0]) 
+    windows = _extract_windows(batch, kernel.shape[2])
+    windows = windows.transpose(1, 0, 2, 3, 4).reshape(batch.shape[0], batch.shape[2] * batch.shape[3], -1)
 
-    kernel = kernel.transpose(0, 2, 3, 1).reshape(kernel.shape[0]*kernel.shape[1]*kernel.shape[2], -1) 
+    kernel = kernel.transpose(0, 2, 3, 1).reshape(kernel.shape[0]*kernel.shape[2]*kernel.shape[3], -1) 
 
     output = (windows@kernel).reshape(batch.shape[0], batch.shape[2], batch.shape[3], -1)
 
@@ -57,6 +38,7 @@ def _backpropagate(batch, kernel, output_grad):
 
 
 if __name__ == "__main__":
+    import time
 
     kernel_height = 3
     kernel_width = 3 
@@ -88,9 +70,19 @@ if __name__ == "__main__":
     images2 = np.stack([_pad_2d_channel(obs, kernel_height// 2)
                               for obs in images])
     
-    import time
-    start = time.time() 
-    image_patches = _extract_windows(images2, kernel_height) 
-    print(f'Time for rewritten method: {time.time() - start}') 
+    patches1 = _extract_windows(images, kernel_height) 
+    patches2 = _get_image_patches(images, kernel_height)
+    
+    print(patches1[0])
+    print(patches2[0])
 
+    assert np.allclose(patches1, patches2, atol=10e-6)
+    # start = time.time() 
+    # image_patches = _extract_windows(images2, kernel_height) 
+    # print(f'Time for rewritten method: {time.time() - start}') 
+
+    # out = _feedforward(images, params)
+    # print(out)
+    # out2 = _output_matmul(images, params)
+    # print(out2)
 
