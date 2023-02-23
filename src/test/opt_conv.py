@@ -1,8 +1,57 @@
 import numpy as np
 import imageio.v3 as imageio 
 import matplotlib.pyplot as plt
-from alt_backprog_conv import _pad_2d_channel, _output_matmul, _get_image_patches
-from alt_backprog_conv import _get_image_patches as _extract_windows
+from alt_backprog_conv import _pad_2d_channel, _output_matmul, _get_image_patches, _param_grad_matmul, _input_grad_matmul
+
+
+def _padding(batch, kernel_size):
+
+        # TODO: Need fixing to output so the channels are merged back together after padding is finished!
+
+        new_height = batch[0, 0, :, :].shape[0] + (kernel_size // 2) * 2
+        new_width = batch[0, 0, :, :].shape[1]  + (kernel_size // 2) * 2
+        k_height = kernel_size // 2
+
+        new_tensor = np.ndarray(
+            (batch.shape[0], batch.shape[1], new_height, new_width)
+        )
+
+        for img in range(batch.shape[0]):
+
+            padded_img = np.zeros(
+                    (batch.shape[1], new_height, new_width)
+            )
+            padded_img[ :, 
+                k_height : new_height - k_height, k_height : new_width - k_height
+            ] = batch[img, :, :, :]
+            new_tensor[img, :, :, :] = padded_img[:, :, :]
+
+        return new_tensor
+
+
+def _extract_windows(batch, kernel_size, stride=1):
+    '''
+    imgs_batch: [batch_size, channels, img_width, img_height]
+    fil_size: int
+    '''
+    # pad the images
+    batch_pad = _padding(batch, kernel_size)
+    
+    windows = []
+    img_height, img_width = batch.shape[2:]
+
+    # For each location in the image...
+    for h in range(kernel_size//2, img_height+1, stride):
+        for w in range(kernel_size//2, img_width+1, stride):
+
+            # ...get an image patch of size [fil_size, fil_size]
+            window = batch_pad[:, :, h-kernel_size//2:h+kernel_size//2+1, w-kernel_size//2:w+kernel_size//2+1]
+            windows.append(window)
+
+    # print(f'Length of patches {len(patches)}')
+    # Stack, getting an output of size
+    # [img_height * img_width, batch_size, n_channels, fil_size, fil_size]
+    return np.stack(windows)
 
 
 def _feedforward(batch, kernel):
@@ -28,7 +77,7 @@ def _backpropagate(batch, kernel, output_grad):
 
     # Computing the input gradient 
     windows = _extract_windows(output_grad, kernel.shape[2]).transpose(1, 0, 2, 3, 4)
-    windows = windows.reshape(batch.shape[0] * batch.shape[2] * batc.shape[3], -1)
+    windows = windows.reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
 
     kernel_r = kernel.reshape(batch.shape[1], -1)
     input_grad = (windows@kernel_r.T).reshape(batch.shape[0], batch.shape[2], batch.shape[3], kernel.shape[0])
@@ -67,22 +116,20 @@ if __name__ == "__main__":
         for j in range(out_grad.shape[1]): 
             out_grad[i,j, :, :] = np.random.rand(image.shape[0], image.shape[1])
     
-    images2 = np.stack([_pad_2d_channel(obs, kernel_height// 2)
-                              for obs in images])
     
-    patches1 = _extract_windows(images, kernel_height) 
-    patches2 = _get_image_patches(images, kernel_height)
+    start = time.time() 
+    image_patches = _extract_windows(images, kernel_height) 
+    print(f'Time for rewritten method: {time.time() - start}') 
     
-    print(patches1[0])
-    print(patches2[0])
-
-    assert np.allclose(patches1, patches2, atol=10e-6)
-    # start = time.time() 
-    # image_patches = _extract_windows(images2, kernel_height) 
-    # print(f'Time for rewritten method: {time.time() - start}') 
+    image_patches2 = _get_image_patches(images, kernel_height)
+    
+    assert np.allclose(image_patches, image_patches2, atol=10e-6)
 
     # out = _feedforward(images, params)
-    # print(out)
-    # out2 = _output_matmul(images, params)
-    # print(out2)
-
+    # 
+    # ker, inp = _backpropagate(images, params, out_grad)
+    # ker2 = _param_grad_matmul(images, params, out_grad) 
+    # inp2 = _input_grad_matmul(images, params, out_grad)
+    #
+    # assert np.allclose(ker, ker2, atol=10e-6)
+    # assert np.allclose(inp, inp2, atol=10e-6)

@@ -116,7 +116,7 @@ def _param_grad_matmul(input_,
     out_channels = output_grad.shape[1]
     patch_size = param.shape[0] * param.shape[2] * param.shape[3]
 
-    patches = _get_image_patches(input_, param_sizes)
+    patches = _get_image_patches(input_, param_size)
 
     patches_reshaped = (
         patches
