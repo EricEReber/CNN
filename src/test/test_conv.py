@@ -56,19 +56,27 @@ def backward_test(X):
     
 if __name__ == "__main__": 
 
+    # From now on batches will be tensors of the following shape: 
+    # input = [batch_size, in_channels, img_height, img_width] 
+    # output = [batch_size, out_channels, img_height, img_width]
+    # params = [in_channels, out_channels, filter_height, filter_width], where filter_height = filter_width
+    # usually. etc. 
+
     img_path = "/home/gregz/Files/CNN/data/luna.JPG"
     print(img_path)
     image = imageio.imread(img_path) 
     images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 3))
     for i in range(3):
         images[:,:,:, i] = image[:,:,:]
-
+    
+    images = images.transpose(3, 2, 0, 1)
+    print(images.shape) 
     # plt.imshow(image, vmin=0, vmax=255, aspect='auto')
     # plt.show()
 
     # init_test()
     # forward_test(images)
     
-    backward_test(images)
+    # backward_test(images)
 
-
+    print((np.stack(np.ndarray((16384, 3, 3)))).shape)

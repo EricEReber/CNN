@@ -266,10 +266,12 @@ class Convolution2DLayer(Layer):
                 )
 
     def _feedforward(self, X):
+        
+        """
+        X = [batch_size, input_maps, img_height, img_width]
+        """
 
         X_pad = self._padding(X)
-
-        input = self._padding(X)
 
         output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
 
@@ -277,9 +279,6 @@ class Convolution2DLayer(Layer):
         self.output_shape = output.shape
 
         start = self.kernel_size // 2
-        # if self.kernel_size % 2 != 0:
-        #     end = start + 1
-        # else:
         end = start
 
         for img in range(X.shape[3]):
@@ -295,12 +294,6 @@ class Convolution2DLayer(Layer):
                                 * self.kernel_tensor[chin, chout, :, :]
                             )
 
-        start = self.kernel_size // 2
-        if self.kernel_size % 2 != 0:
-            end = start + 1
-        else:
-            end = start
-
         """
         for k_x in range(self.kernel_size): 
             for k_y in range(self.kernel_size): 
@@ -311,6 +304,11 @@ class Convolution2DLayer(Layer):
         # in image processing and signal processing
 
         return self.act_func(output)
+
+    def _opt_feedforward(self, X): 
+
+        X_pad = self._padding(X)
+
 
     def _backpropagate(self, X, delta_next):
 
@@ -400,6 +398,37 @@ class Convolution2DLayer(Layer):
 
         else:
             return batch
+
+
+def Convolution2DLayerOPT(Convolution2DLayer): 
+
+   def __init__(
+        self,
+        input_channels,  # number of maps the input is split into
+        feature_maps,  # also known as feature maps
+        kernel_size,
+        stride,
+        pad,
+        act_func: Callable,
+        seed=None,
+        ): 
+       super().__init__(self, seed, kernel_size, stride, pad, act_func, seed)
+        
+    def _get_image_patches2(batch, filter_dim):
+        # pad the images
+        batch_padded = np.pad(batch, ((0,0),(0,0),(filter_dim//2,filter_dim//2),(filter_dim//2,filter_dim//2)), mode='constant')
+
+        # get all patches using numpy's stride_tricks
+        batch_size, channels, img_width, img_height = imgs_batch_pad.shape
+        patch_shape = (batch_size, channels, fil_size, fil_size, img_width-fil_size+1, img_height-fil_size+1)
+        patch_strides = (channels*img_width*img_height, img_width*img_height, img_width, 1, img_height, 1)
+        patches = np.lib.stride_tricks.as_strided(imgs_batch_pad, shape=patch_shape, strides=patch_strides)
+
+        # reshape and return the patches
+        patches = patches.transpose(4,5,0,1,2,3)
+
+        return patches.reshape(-1, batch_size, channels, fil_size, fil_size)
+
 
 
 class Pooling2DLayer(Layer):
