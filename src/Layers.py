@@ -90,8 +90,6 @@ class FullyConnectedLayer(Layer):
         # regularization term
         gradient_weights += self.weights[1:, :] * lam
 
-        # TODO: This part needs changing! Scheduler should update weights and bias simultaneously,
-        # and not require two instances of the same class for the weight and bias update task
         update_matrix = np.vstack(
             [
                 self.scheduler_bias.update_change(gradient_bias),
@@ -100,7 +98,6 @@ class FullyConnectedLayer(Layer):
         )
 
         self.weights -= update_matrix
-        # print(f"{self.weights=}")
 
         return self.weights, delta_matrix
 
@@ -120,7 +117,6 @@ class FullyConnectedLayer(Layer):
         return self.a_matrix
 
 
-# TODO: Test if OutputLayer inherits the constructor in the desired way, or if some changes need to be applied.
 class OutputLayer(FullyConnectedLayer):
     def __init__(
         self,
@@ -186,9 +182,7 @@ class OutputLayer(FullyConnectedLayer):
             ]
         )
 
-        # print(f"{update_matrix=}")
         self.weights -= update_matrix
-        # print(f"{self.weights=}")
 
         return self.weights, delta_matrix
 
