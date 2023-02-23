@@ -124,7 +124,7 @@ if __name__ == "__main__":
     image_patches2 = _get_image_patches(images, kernel_height)
     
     assert np.allclose(image_patches, image_patches2, atol=10e-6)
-
+    
     # out = _feedforward(images, params)
     # 
     # ker, inp = _backpropagate(images, params, out_grad)
