@@ -51,6 +51,11 @@ cnn.add_OutputLayer(1, sigmoid, seed=seed)
 cnn.fit(
     X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
 )
+cnn.fit(X_train, t_train, lam=lam, batches=batches, epochs=epochs)
+pred = cnn.predict(X_train)
+acc = cnn._accuracy(pred, t_train)
+print(f"{acc=}")
+>>>>>>> a605b4362105a62a2575be23e4909de6c7a266dd
 
 
 # TODO for some reason outputlayer makes FullyConnectedLayer work worse?
