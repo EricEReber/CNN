@@ -53,6 +53,8 @@ cnn.add_OutputLayer(1, sigmoid, seed=seed)
 cnn.fit(
     X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
 )
+cnn.fit(X_train, t_train, lam=lam, batches=batches, epochs=epochs)
+>>>>>>> 16eb09c (Complete FFNN layers)
 pred = cnn.predict(X_train)
 acc = cnn._accuracy(pred, t_train)
 print(f"{acc=}")

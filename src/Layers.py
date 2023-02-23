@@ -414,6 +414,42 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                 ]
                 windows.append(window)
 
+    def _get_image_patches2(self, batch, filter_dim):
+        # pad the images
+        batch_padded = np.pad(
+            batch,
+            (
+                (0, 0),
+                (0, 0),
+                (filter_dim // 2, filter_dim // 2),
+                (filter_dim // 2, filter_dim // 2),
+            ),
+            mode="constant",
+        )
+
+        # get all patches using numpy's stride_tricks
+        batch_size, channels, img_width, img_height = imgs_batch_pad.shape
+        patch_shape = (
+            batch_size,
+            channels,
+            fil_size,
+            fil_size,
+            img_width - fil_size + 1,
+            img_height - fil_size + 1,
+        )
+        patch_strides = (
+            channels * img_width * img_height,
+            img_width * img_height,
+            img_width,
+            1,
+            img_height,
+            1,
+        )
+        patches = np.lib.stride_tricks.as_strided(
+            imgs_batch_pad, shape=patch_shape, strides=patch_strides
+        )
+>>>>>>> 16eb09c (Complete FFNN layers)
+
         # reshape and return the patches
         patches = patches.transpose(4, 5, 0, 1, 2, 3)
 
@@ -474,7 +510,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
         # Output the gradient to propagate backwards
         return input_grad
-
 
 class Pooling2DLayer(Layer):
     def __init__(self, seed, kernel_size, stride, pooling="max"):
