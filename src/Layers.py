@@ -86,7 +86,6 @@ class FullyConnectedLayer(Layer):
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
-        gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
 
         # regularization term
         gradient_weights += self.weights[1:, :] * lam
@@ -95,8 +94,8 @@ class FullyConnectedLayer(Layer):
         # and not require two instances of the same class for the weight and bias update task
         update_matrix = np.vstack(
             [
-                self.scheduler_weight.update_change(gradient_weights),
                 self.scheduler_bias.update_change(gradient_bias),
+                self.scheduler_weight.update_change(gradient_weights),
             ]
         )
 
