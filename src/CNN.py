@@ -30,6 +30,7 @@ class CNN:
         self.schedulers_weight = list()
         self.schedulers_bias = list()
         self.prediction = None
+        self.batches = 1
 
         self._set_classification()
 
@@ -69,14 +70,13 @@ class CNN:
 
     def fit(
         # TODO does not work for ConvLayers, only works for FFNN
-        # for example, batches are specified in (H, W, FM, B), but here we
+        # for example, self.batches are specified in (H, W, FM, B), but here we
         # take it as keyword arg (makes no sense)
         # perhaps we seperate fit() for conv layer in self.layers, and fit() for
         # FFNN layer in self.layers
         self,
         X: np.ndarray,
         t: np.ndarray,
-        batches: int = 1,
         epochs: int = 100,
         lam: float = 0,
         X_val: np.ndarray = None,
@@ -105,7 +105,7 @@ class CNN:
         val_accs = np.empty(epochs)
         val_accs.fill(np.nan)
 
-        batch_size = X.shape[0] // batches
+        batch_size = X.shape[0] // self.batches
 
         X, t = resample(X, t)
 
@@ -115,8 +115,8 @@ class CNN:
 
         try:
             for epoch in range(epochs):
-                for batch_num in range(batches):
-                    if batch_num == batches - 1:
+                for batch_num in range(self.batches):
+                    if batch_num == self.batches - 1:
                         # If the for loop has reached the last batch_num, take all thats left
                         X_batch = X[batch_num * batch_size :, :]
                         t_batch = t[batch_num * batch_size :, :]

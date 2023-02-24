@@ -36,17 +36,27 @@ lam = 1e-5
 epochs = 200
 
 batches = 10
-feature_maps = 1
+feature_maps = 10
+print(f"{X_train.shape=}")
 
-H = X_train.shape[0] // batches
-W = X_train.shape[1] // batches
+H = X_train.shape[0]
+W = X_train.shape[1] // feature_maps
+
+print(W)
+
 reshaped_X_train = np.zeros((batches, feature_maps, H, W))
-for fm in range(feature_maps):
-    for b in range(batches):
+index_counter = 0
+for b in range(batches):
+    for fm in range(feature_maps):
         for h in range(H):
             for w in range(W):
-                reshaped_X_train[b, fm, h, w] = X_train[h*b, w*b]
-    
+                reshaped_X_train[b, fm, h, w] = X_train[h, w + fm * W]
+
+print(f"{reshaped_X_train.shape=}")
+test_flatten = FlattenLayer(seed)
+flattened_reshaped = test_flatten._feedforward(reshaped_X_train)
+print(f"{flattened_reshaped.shape=}")
+
 
 adam_scheduler = Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
@@ -55,17 +65,17 @@ cnn = CNN(scheduler=adam_scheduler, seed=seed)
 
 # test way to connect layers
 print(f"{seed=}")
-test_flatten = FlattenLayer(seed)
-cnn.add_FlattenLayer(seed=seed)
-
-cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU, seed=seed)
-
-cnn.add_FullyConnectedLayer(100, LRELU, seed=seed)
-
-cnn.add_OutputLayer(1, sigmoid, seed=seed)
-
-cnn._feedforward(reshaped_X_train)
-# cnn.fit(
-#     reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
-# )
-
+#
+# cnn.add_FlattenLayer(seed=seed)
+#
+# cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU, seed=seed)
+#
+# cnn.add_FullyConnectedLayer(100, LRELU, seed=seed)
+#
+# cnn.add_OutputLayer(1, sigmoid, seed=seed)
+#
+# cnn._feedforward(reshaped_X_train)
+# # cnn.fit(
+# #     reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
+# # )
+#

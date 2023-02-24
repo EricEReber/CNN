@@ -59,7 +59,8 @@ class FullyConnectedLayer(Layer):
 
             self.z_matrix = X @ self.weights
 
-            self.a_matrix = self.act_func(self.z_matrix) bias = np.ones((X.shape[0], 1)) * 0.01
+            self.a_matrix = self.act_func(self.z_matrix)
+            bias = np.ones((X.shape[0], 1)) * 0.01
             self.a_matrix = np.hstack([bias, self.a_matrix])
 
         return self.a_matrix
@@ -264,7 +265,6 @@ class Convolution2DLayer(Layer):
 
         start = self.kernel_size // 2
         end = start
-
         for img in range(X.shape[3]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
@@ -501,6 +501,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         # Output the gradient to propagate backwards
         return input_grad
 
+
 class Pooling2DLayer(Layer):
     def __init__(self, seed, kernel_size, stride, pooling="max"):
         super().__init__(seed)
@@ -548,8 +549,8 @@ class FlattenLayer(Layer):
 
     def _feedforward(self, X):
         self.input_shape = X.shape
-        # Remember, the data has the following shape: (H, W, FM, B) Where H = Height, W = Width, FM = Feature maps and B = Batch size
-        return X.reshape(-1, X.shape[3])
+        # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
+        return X.reshape(X.shape[0], X.shape[1]*X.shape[2]*X.shape[3])
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)
