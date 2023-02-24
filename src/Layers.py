@@ -59,9 +59,7 @@ class FullyConnectedLayer(Layer):
 
             self.z_matrix = X @ self.weights
 
-            self.a_matrix = self.act_func(self.z_matrix)
-
-            bias = np.ones((X.shape[0], 1)) * 0.01
+            self.a_matrix = self.act_func(self.z_matrix) bias = np.ones((X.shape[0], 1)) * 0.01
             self.a_matrix = np.hstack([bias, self.a_matrix])
 
         return self.a_matrix
@@ -441,7 +439,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         patches = np.lib.stride_tricks.as_strided(
             imgs_batch_pad, shape=patch_shape, strides=patch_strides
         )
->>>>>>> 16eb09c (Complete FFNN layers)
 
         # reshape and return the patches
         patches = patches.transpose(4, 5, 0, 1, 2, 3)
@@ -546,7 +543,7 @@ class Pooling2DLayer(Layer):
 
 
 class FlattenLayer(Layer):
-    def __init__(self, seed):
+    def __init__(self, seed=None):
         super().__init__(seed)
 
     def _feedforward(self, X):
@@ -556,3 +553,6 @@ class FlattenLayer(Layer):
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)
+
+    def _reset_weights(self):
+        pass

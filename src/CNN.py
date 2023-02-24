@@ -64,7 +64,15 @@ class CNN:
         self.layers.append(output_layer)
         self.prediction = output_layer.get_prediction()
 
+    def add_FlattenLayer(self, seed=None):
+        self.layers.append(FlattenLayer(seed))
+
     def fit(
+        # TODO does not work for ConvLayers, only works for FFNN
+        # for example, batches are specified in (H, W, FM, B), but here we
+        # take it as keyword arg (makes no sense)
+        # perhaps we seperate fit() for conv layer in self.layers, and fit() for
+        # FFNN layer in self.layers
         self,
         X: np.ndarray,
         t: np.ndarray,

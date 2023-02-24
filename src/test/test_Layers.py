@@ -10,7 +10,7 @@ import autograd.numpy as np
 
 
 """
-Test file too see if FullyConnectedLayer functions as feed forward neural network (FFNN)
+Test file to test differnet layers and combinations of layers in a CNN 
 """
 
 # simple dataset
@@ -26,15 +26,27 @@ scaler.fit(X_train)
 X_train = scaler.transform(X_train)
 X_val = scaler.transform(X_val)
 
-rho = 0.9
-rho2 = 0.999
-eta = 1e-3
-lam = 1e-5
-momentum = 0.9
-batches = 10
-epochs = 200
 
 seed = 1337
+rho = 0.9
+rho2 = 0.999
+momentum = 0.9
+eta = 1e-3
+lam = 1e-5
+epochs = 200
+
+batches = 10
+feature_maps = 1
+
+H = X_train.shape[0] // batches
+W = X_train.shape[1] // batches
+reshaped_X_train = np.zeros((batches, feature_maps, H, W))
+for fm in range(feature_maps):
+    for b in range(batches):
+        for h in range(H):
+            for w in range(W):
+                reshaped_X_train[b, fm, h, w] = X_train[h*b, w*b]
+    
 
 adam_scheduler = Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
@@ -42,27 +54,18 @@ momentum_scheduler = Momentum(eta, momentum)
 cnn = CNN(scheduler=adam_scheduler, seed=seed)
 
 # test way to connect layers
+print(f"{seed=}")
+test_flatten = FlattenLayer(seed)
+cnn.add_FlattenLayer(seed=seed)
+
 cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU, seed=seed)
 
 cnn.add_FullyConnectedLayer(100, LRELU, seed=seed)
 
 cnn.add_OutputLayer(1, sigmoid, seed=seed)
 
-cnn.fit(
-    X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
-)
-cnn.fit(X_train, t_train, lam=lam, batches=batches, epochs=epochs)
-pred = cnn.predict(X_train)
-acc = cnn._accuracy(pred, t_train)
-print(f"{acc=}")
->>>>>>> a605b4362105a62a2575be23e4909de6c7a266dd
+cnn._feedforward(reshaped_X_train)
+# cnn.fit(
+#     reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=X_val, t_val=t_val
+# )
 
-
-# TODO for some reason outputlayer makes FullyConnectedLayer work worse?
-# unsure, ill figure it out
-
-ffnn = FFNN([X_train.shape[1], 2, 5], sigmoid, seed=seed)
-ffnn_a = ffnn._feedforward(X_train)
-
-# TODO this should work, unsure what problem is
-# assert (layer_a==ffnn_a).all(), "feedforward output not equal in FFNN and FullyConnectedLayer"
