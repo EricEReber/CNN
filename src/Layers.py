@@ -405,47 +405,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                 ]
                 windows.append(window)
 
-    def _get_image_patches2(self, batch, filter_dim):
-        # pad the images
-        batch_padded = np.pad(
-            batch,
-            (
-                (0, 0),
-                (0, 0),
-                (filter_dim // 2, filter_dim // 2),
-                (filter_dim // 2, filter_dim // 2),
-            ),
-            mode="constant",
-        )
-
-        # get all patches using numpy's stride_tricks
-        batch_size, channels, img_width, img_height = imgs_batch_pad.shape
-        patch_shape = (
-            batch_size,
-            channels,
-            fil_size,
-            fil_size,
-            img_width - fil_size + 1,
-            img_height - fil_size + 1,
-        )
-        patch_strides = (
-            channels * img_width * img_height,
-            img_width * img_height,
-            img_width,
-            1,
-            img_height,
-            1,
-        )
-        patches = np.lib.stride_tricks.as_strided(
-            imgs_batch_pad, shape=patch_shape, strides=patch_strides
-        )
-
-        # reshape and return the patches
-        patches = patches.transpose(4, 5, 0, 1, 2, 3)
-
-        # [img_height * img_width, batch_size, n_channels, fil_size, fil_size]
-        return np.stack(windows)
-
     def _feedforward(self, batch):
         kernel = self.kernel_tensor
 
@@ -550,7 +509,7 @@ class FlattenLayer(Layer):
     def _feedforward(self, X):
         self.input_shape = X.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
-        return X.reshape(X.shape[0], X.shape[1]*X.shape[2]*X.shape[3])
+        return X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)
