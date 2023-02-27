@@ -469,7 +469,6 @@ class Pooling2DLayer(Layer):
         self.pooling = pooling
 
     def _feedforward(self, X):
-
         # Saving the input shape for use in the backwardpass
         self.input_shape = X.shape
 
@@ -480,7 +479,7 @@ class Pooling2DLayer(Layer):
         else:
             new_width = (X[0, 0, :, :].shape[1] - self.kernel_size) / self.stride + 1
 
-        output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width)) 
+        output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width))
 
         if self.pooling == "max":
             self.pooling_action = np.max
@@ -504,20 +503,36 @@ class Pooling2DLayer(Layer):
                 new_x += 1
 
         return output
-        
-    def _feedbackward(self, delta_next, X=None): 
-        
+
+    def _feedbackward(self, delta_next, X=[]):
         delta_input = np.zeros((self.input_shape))
-       
-        k_h, k_w = self.kernel_size, self.kernel_size 
-        for img in range(delta_next.shape[0]): 
+
+        k_h, k_w = self.kernel_size, self.kernel_size
+        for img in range(delta_next.shape[0]):
             for fmap in range(delta_next.shape[1]):
-                for x in range(delta_input.shape[2]. self.stride): 
-                    for y in range(delta_input.shape[3], self.stide): 
-                        
-                        if self.pooling == 'max': 
-                            i,j = np.unravel_index(X[img, fmap, x : x + k_h, y : y + k_w)
-                            delta_input[i,j] = delta_next[img, fmap, x - self.stride, y - self.stride]
+                for x in range(delta_next.shape[2]):
+                    for y in range(delta_next.shape[3]):
+                        if self.pooling == "max":
+                            window = X[
+                                img,
+                                fmap,
+                                (x * self.stride) : (x * self.stride) + k_h,
+                                (y * self.stride) : (y * self.stride) + k_w,
+                            ]
+                            i, j = np.unravel_index(window.argmax(), window.shape)
+
+                            delta_input[img, fmap, i, j] += delta_next[img, fmap, x, y]
+
+                        if self.pooling == "average":
+                            delta_input[
+                                img,
+                                fmap,
+                                (x * self.stride) : (x * self.stride) + k_h,
+                                (y * self.stride) : (y * self.stride) + k_w,
+                            ] = (
+                                delta_next[img, fmap, x, y] / k_h / k_w
+                            )
+        return delta_input
 
 
 class FlattenLayer(Layer):
