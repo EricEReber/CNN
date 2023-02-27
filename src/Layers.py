@@ -298,7 +298,6 @@ class Convolution2DLayer(Layer):
 
         return self.act_func(output)
 
-
     def _backpropagate(self, X, delta_next):
         delta = np.zeros((X.shape))
         print(delta.shape)
@@ -323,9 +322,9 @@ class Convolution2DLayer(Layer):
                             delta[img, chin, x, y] = np.sum(
                                 delta_next[
                                     img,
-                                    chout, 
+                                    chout,
                                     x : x + self.kernel_height,
-                                    y : y + self.kernel_width, 
+                                    y : y + self.kernel_width,
                                 ]
                                 * np.rot90(
                                     np.rot90(self.kernel_tensor[chin, chout, :, :])
@@ -371,7 +370,9 @@ class Convolution2DLayer(Layer):
             for img in range(batch.shape[0]):
                 padded_img = np.zeros((batch.shape[1], new_height, new_width))
                 padded_img[
-                    :, hk_height : new_height - hk_height, hk_width : new_width - hk_width
+                    :,
+                    hk_height : new_height - hk_height,
+                    hk_width : new_width - hk_width,
                 ] = batch[img, :, :, :]
                 new_tensor[img, :, :, :] = padded_img[:, :, :]
 
@@ -474,10 +475,10 @@ class Pooling2DLayer(Layer):
         self, kernel_height, kernel_width, v_stride, h_stride, pooling="max", seed=2023
     ):
         super().__init__(seed)
-        self.kh = kernel_height
-        self.kw = kernel_width
-        self.v_s = v_stride
-        self.h_s = h_stride
+        self.kernel_height = kernel_height
+        self.kernel_weight = kernel_width
+        self.v_stride = v_stride
+        self.h_stride = h_stride
         self.pooling = pooling
 
     def _feedforward(self, X):
@@ -485,11 +486,11 @@ class Pooling2DLayer(Layer):
         self.input_shape = X.shape
 
         # Computing the size of the feature maps based on kernel size and the stride parameter
-        new_height = (X.shape[2] - self.kh) // self.v_s + 1
+        new_height = (X.shape[2] - self.kernel_height) // self.v_stride + 1
         if X.shape[2] == X.shape[3]:
             new_width = new_height
         else:
-            new_width = (X.shape[2] - self.kw) // self.h_s + 1
+            new_width = (X.shape[2] - self.kernel_width) // self.h_stride + 1
 
         output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width))
 
@@ -506,8 +507,10 @@ class Pooling2DLayer(Layer):
                             X[
                                 img,
                                 fmap,
-                                (x * self.v_s) : (x * self.v_s) + self.kh,
-                                (y * self.h_s) : (y * self.h_s) + self.kw,
+                                (x * self.v_stride) : (x * self.v_stride)
+                                + self.kernel_height,
+                                (y * self.h_stride) : (y * self.h_stride)
+                                + self.kernel_width,
                             ]
                         )
 
@@ -524,24 +527,26 @@ class Pooling2DLayer(Layer):
                             window = X[
                                 img,
                                 fmap,
-                                (x * self.v_s) : (x * self.v_s) + self.kh,
-                                (y * self.h_s) : (y * self.h_s) + self.kw,
+                                (x * self.v_stride) : (x * self.v_stride)
+                                + self.kernel_height,
+                                (y * self.h_stride) : (y * self.h_stride)
+                                + self.kernel_width,
                             ]
 
                             i, j = np.unravel_index(window.argmax(), window.shape)
 
                             delta_input[
-                                img, fmap, (x * self.v_s) + i, (y * self.h_s) + j
+                                img, fmap, (x * self.v_stride) + i, (y * self.h_stride) + j
                             ] += delta_next[img, fmap, x, y]
 
                         if self.pooling == "average":
                             delta_input[
                                 img,
                                 fmap,
-                                (x * self.v_s) : (x * self.v_s) + self.kh,
-                                (y * self.h_s) : (y * self.h_s) + self.kw,
+                                (x * self.v_stride) : (x * self.v_stride) + self.kernel_height,
+                                (y * self.h_stride) : (y * self.h_stride) + self.kernel_width,
                             ] = (
-                                delta_next[img, fmap, x, y] / self.kh / self.kw
+                                delta_next[img, fmap, x, y] / self.kernel_height / self.kernel_width
                             )
         return delta_input
 
