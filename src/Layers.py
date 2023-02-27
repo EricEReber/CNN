@@ -322,18 +322,14 @@ class Convolution2DLayer(Layer):
         # The gradient received from the next layer also needs to be padded
         delta_next = self._padding(delta_next)
 
-        start = self.kernel_size // 2
-        if self.kernel_size % 2 != 0:
-            end = start + 1
-        else:
-            end = start
+        start = self.kernel_height // 2
 
-        for img in range(X.shape[3]):
+        for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(start, X.shape[0] + end, self.stride):
-                        for y in range(start, X.shape[1] + end, self.stride):
-                            delta[x, y, chin, img] = np.sum(
+                    for x in range(start, X.shape[0], self.v_stride):
+                        for y in range(start, X.shape[1], self.h_stride):
+                            delta[img, chin, x, y] = np.sum(
                                 delta_next[
                                     x - start : x + end, y - start : y + end, chout, img
                                 ]
