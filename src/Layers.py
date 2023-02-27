@@ -232,10 +232,10 @@ class Convolution2DLayer(Layer):
         super().__init__(seed)
         self.input_channels = input_channels
         self.feature_maps = feature_maps
-        self.kh = kernel_height
-        self.kw = kernel_width
-        self.vs = v_stride
-        self.hs = h_stride
+        self.kernel_height = kernel_height
+        self.kernel_width = kernel_width
+        self.v_stride = v_stride
+        self.h_stride = h_stride
         self.pad = pad
         self.act_func = act_func
 
@@ -246,13 +246,18 @@ class Convolution2DLayer(Layer):
             np.random.seed(self.seed)
 
         self.kernel_tensor = np.ndarray(
-            (self.input_channels, self.feature_maps, self.kernel_size, self.kernel_size)
+            (
+                self.input_channels,
+                self.feature_maps,
+                self.kernel_height,
+                self.kernel_width,
+            )
         )
 
         for i in range(self.kernel_tensor.shape[0]):
             for j in range(self.kernel_tensor.shape[1]):
                 self.kernel_tensor[i, j, :, :] = np.random.rand(
-                    self.kernel_size, self.kernel_size
+                    self.kernel_height, self.kernel_width
                 )
 
     def _feedforward(self, X):
@@ -270,10 +275,17 @@ class Convolution2DLayer(Layer):
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(0, X.shape[2], self.stride):
-                        for y in range(0, X.shape[3], self.stride):
-
-                            output[img, chout, x, y] = np.sum(X_pad[img, chin, x : x + self.kernel_size, y : y + self.kernel_size] * self.kernel_tensor[chin, chout, :, :])
+                    for x in range(0, X.shape[2], self.v_stride):
+                        for y in range(0, X.shape[3], self.h_stride):
+                            output[img, chout, x, y] = np.sum(
+                                X_pad[
+                                    img,
+                                    chin,
+                                    x : x + self.kernel_height,
+                                    y : y + self.kernel_width,
+                                ]
+                                * self.kernel_tensor[chin, chout, :, :]
+                            )
 
                             # output[x - start, y - start, chout, img] = np.sum(
                             #     X_pad[
@@ -357,9 +369,10 @@ class Convolution2DLayer(Layer):
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
         if self.pad == "same":
-            new_height = batch.shape[2] + (self.kernel_size // 2) * 2
-            new_width = batch.shape[3] + (self.kernel_size // 2) * 2
-            k_height = self.kernel_size // 2
+            new_height = batch.shape[2] + (self.kernel_height // 2) * 2
+            new_width = batch.shape[3] + (self.kernel_width // 2) * 2
+            hk_height = self.kernel_height // 2
+            hk_width = self.kernel_width // 2
 
             new_tensor = np.ndarray(
                 (batch.shape[0], batch.shape[1], new_height, new_width)
@@ -368,7 +381,7 @@ class Convolution2DLayer(Layer):
             for img in range(batch.shape[0]):
                 padded_img = np.zeros((batch.shape[1], new_height, new_width))
                 padded_img[
-                    :, k_height : new_height - k_height, k_height : new_width - k_height
+                    :, hk_height : new_height - hk_height, hk_width : new_width - hk_width
                 ] = batch[img, :, :, :]
                 new_tensor[img, :, :, :] = padded_img[:, :, :]
 

@@ -21,8 +21,10 @@ def forward_test(X):
     layer = Convolution2DLayer(
         input_channels=3,
         feature_maps=64,
-        kernel_size=2,
-        stride=2,
+        kernel_height=2,
+        kernel_width=2,
+        v_stride=2,
+        h_stride=2,
         pad="same",
         act_func=lambda x: x,
         seed=2023,
