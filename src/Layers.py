@@ -519,9 +519,12 @@ class Pooling2DLayer(Layer):
                                 (x * self.v_s) : (x * self.v_s) + self.kh,
                                 (y * self.h_s) : (y * self.h_s) + self.kw,
                             ]
+
                             i, j = np.unravel_index(window.argmax(), window.shape)
 
-                            delta_input[img, fmap, i, j] += delta_next[img, fmap, x, y]
+                            delta_input[
+                                img, fmap, (x * self.v_s) + i, (y * self.h_s) + j
+                            ] += delta_next[img, fmap, x, y]
 
                         if self.pooling == "average":
                             delta_input[
