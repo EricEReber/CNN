@@ -539,10 +539,10 @@ class FlattenLayer(Layer):
     def __init__(self, seed=None):
         super().__init__(seed)
 
-    def _feedforward(self, X):
-        self.input_shape = X.shape
+    def _feedforward(self, batch):
+        self.input_shape = batch.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
-        return X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
+        return batch.reshape(batch.shape[0] * batch.shape[1] * batch.shape[2], 1)
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)

@@ -68,6 +68,79 @@ class CNN:
     def add_FlattenLayer(self, seed=None):
         self.layers.append(FlattenLayer(seed))
 
+    def fit(X, t, epochs = 100, lam = 0, X_val = None, t_val = None):
+        # setup
+        if self.seed is not None:
+            np.random.seed(self.seed)
+
+        val_set = False
+        if X_val is not None and t_val is not None:
+            val_set = True
+
+        # creating arrays for score metrics
+        train_errors = np.empty(epochs)
+        train_errors.fill(np.nan)
+        val_errors = np.empty(epochs)
+        val_errors.fill(np.nan)
+
+        train_accs = np.empty(epochs)
+        train_accs.fill(np.nan)
+        val_accs = np.empty(epochs)
+        val_accs.fill(np.nan)
+
+        # reset for consecutive calls to fit()
+        for layer in self.layers:
+            layer._reset_weights()
+
+        try:
+            batches = X.shape[0]
+            for epoch in range(epochs):
+                for batch in range(batches):
+                    X_batch = X[batch, :, :, :]
+                    feedforward(X_batch)
+                    backpropagate(t, lam)
+
+        except KeyboardInterrupt:
+            pass
+
+
+
+    def _feedforward()
+        a = None
+        for layer in self.layers():
+
+            if isinstance(layer, FlattenLayer):
+                X_batch = layer._feedforward(X_batch)
+                bias = np.ones((X_batch.shape[0], 1)) * 0.01
+                a = np.hstack([bias, X_batch])
+
+            elif isinstance(layer, FullyConnectedLayer):
+                assert a is not None
+
+                a = layer._feedforward(a)
+
+            else:
+                # TODO implement other types of layers
+                raise NotImplementedError
+
+    def _backpropagate(self, t, lam):
+        reversed_layers = self.layers[::-1]
+
+        for i in range(len(reversed_layers) - 1):
+            layer = reversed_layers[i]
+            prev_layer = reversed_layers[i + 1]
+            if isinstance(layer, OutputLayer):
+                weights_next, delta_next = layer._backpropagate(
+                    t, prev_layer.get_prev_a(), lam
+                )
+            elif isinstance(layer, FullyConnectedLayer):
+                weights_next, delta_next = layer._backpropagate(
+                    weights_next, delta_next, prev_layer.get_prev_a(), lam
+                )
+            else:
+                # TODO implement other types of layers
+                raise NotImplementedError
+
     def fit(
         # TODO does not work for ConvLayers, only works for FFNN
         # for example, self.batches are specified in (H, W, FM, B), but here we
@@ -116,6 +189,7 @@ class CNN:
         try:
             for epoch in range(epochs):
                 for batch_num in range(self.batches):
+
                     if batch_num == self.batches - 1:
                         # If the for loop has reached the last batch_num, take all thats left
                         X_batch = X[batch_num * batch_size :, :]
