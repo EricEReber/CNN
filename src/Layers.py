@@ -469,38 +469,48 @@ class Pooling2DLayer(Layer):
         self.pooling = pooling
 
     def _feedforward(self, X):
+
+        # Saving the input shape for use in the backwardpass
+        self.input_shape = X.shape
+
         # Computing the size of the feature maps based on kernel size and the stride parameter
-        new_height = (X[:, :, 0, 0].shape[0] - self.kernel_size) / self.stride + 1
-        if X[:, :, 0, 0].shape[1] == X[:, :, 0, 0].shape[0]:
+        new_height = (X[0, 0, :, :].shape[0] - self.kernel_size) / self.stride + 1
+        if X[0, 0, :, :].shape[1] == X[0, 0, :, :].shape[0]:
             new_width = new_height
         else:
-            new_width = (X[:, :, 0, 0].shape[1] - self.kernel_size) / self.stride + 1
+            new_width = (X[0, 0, :, :].shape[1] - self.kernel_size) / self.stride + 1
 
-        output = np.ndarray((new_height, new_width, X.shape[2], X.shape[3]))
+        output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width)) 
 
         if self.pooling == "max":
             self.pooling_action = np.max
         else:
             self.pooling_action = np.mean
 
-        for img in range(X.shape[3]):
-            for map in range(X.shape[2]):
+        for img in range(X.shape[0]):
+            for fmap in range(X.shape[1]):
                 new_x, new_y = 0, 0
-                for x in range(0, X.shape[0], self.stride):
-                    for y in range(0, X.shape[1], self.stride):
-                        output[new_x, new_y] = self.pooling_action(
+                for x in range(0, X.shape[1], self.stride):
+                    for y in range(0, X.shape[2], self.stride):
+                        output[img, fmap, new_x, new_y] = self.pooling_action(
                             X[
+                                img,
+                                fmap,
                                 x : x + self.kernel_size,
                                 y : y + self.kernel_size,
-                                map,
-                                img,
                             ]
                         )
                     new_y += 1
                 new_x += 1
 
         return output
-
+        
+    def _feedbackward(self, delta_next, X=None): 
+        
+        delta_input = np.ndarray((self.input_shape))
+        
+        for img in range(delta_input.shape[0]): 
+            for 
 
 class FlattenLayer(Layer):
     def __init__(self, seed=None):
