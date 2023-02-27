@@ -274,17 +274,17 @@ class Convolution2DLayer(Layer):
 
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
-                for chout in range(self.feature_maps):
+                for fmap in range(self.feature_maps):
                     for x in range(0, X.shape[2], self.v_stride):
                         for y in range(0, X.shape[3], self.h_stride):
-                            output[img, chout, x, y] = np.sum(
+                            output[img, fmap, x, y] = np.sum(
                                 X_pad[
                                     img,
                                     chin,
                                     x : x + self.kernel_height,
                                     y : y + self.kernel_width,
                                 ]
-                                * self.kernel_tensor[chin, chout, :, :]
+                                * self.kernel_tensor[chin, fmap, :, :]
                             )
 
         """
@@ -316,7 +316,7 @@ class Convolution2DLayer(Layer):
 
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
-                for chout in range(self.feature_maps):
+                for fmap in range(self.feature_maps):
                     for x in range(0, X.shape[2], self.v_stride):
                         for y in range(0, X.shape[3], self.h_stride):
                             delta[img, chin, x, y] = np.sum(
@@ -327,7 +327,7 @@ class Convolution2DLayer(Layer):
                                     y : y + self.kernel_width,
                                 ]
                                 * np.rot90(
-                                    np.rot90(self.kernel_tensor[chin, chout, :, :])
+                                    np.rot90(self.kernel_tensor[chin, fmap, :, :])
                                 )
                             )
 
@@ -342,14 +342,14 @@ class Convolution2DLayer(Layer):
                                         ]
                                         * delta_next[
                                             img,
-                                            chout,
+                                            fmap,
                                             x : x + self.kernel_height,
                                             y : y + self.kernel_width,
                                         ]
                                     )
                                     # Each filter is updated
-                    self.kernel_tensor[chin, chout, :, :] -= kernel_grad[
-                        chin, chout, :, :
+                    self.kernel_tensor[chin, fmap, :, :] -= kernel_grad[
+                        chin, fmap, :, :
                     ]
 
         return delta
