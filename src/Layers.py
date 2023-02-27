@@ -287,13 +287,6 @@ class Convolution2DLayer(Layer):
                                 * self.kernel_tensor[chin, chout, :, :]
                             )
 
-                            # output[x - start, y - start, chout, img] = np.sum(
-                            #     X_pad[
-                            #         x - start : x + end, y - start : y + end, chin, img
-                            #     ]
-                            #     * self.kernel_tensor[chin, chout, :, :]
-                            # )
-
         """
         for k_x in range(self.kernel_size): 
             for k_y in range(self.kernel_size): 
@@ -305,11 +298,10 @@ class Convolution2DLayer(Layer):
 
         return self.act_func(output)
 
-    def _opt_feedforward(self, X):
-        X_pad = self._padding(X)
 
     def _backpropagate(self, X, delta_next):
         delta = np.zeros((X.shape))
+        print(delta.shape)
         kernel_grad = np.zeros((self.kernel_tensor.shape))
 
         X_pad = self._padding(X)
@@ -321,37 +313,39 @@ class Convolution2DLayer(Layer):
 
         # The gradient received from the next layer also needs to be padded
         delta_next = self._padding(delta_next)
-
-        start = self.kernel_height // 2
+        print(delta_next.shape)
 
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(start, X.shape[0], self.v_stride):
-                        for y in range(start, X.shape[1], self.h_stride):
+                    for x in range(0, X.shape[2], self.v_stride):
+                        for y in range(0, X.shape[3], self.h_stride):
                             delta[img, chin, x, y] = np.sum(
                                 delta_next[
-                                    x - start : x + end, y - start : y + end, chout, img
+                                    img,
+                                    chout, 
+                                    x : x + self.kernel_height,
+                                    y : y + self.kernel_width, 
                                 ]
                                 * np.rot90(
                                     np.rot90(self.kernel_tensor[chin, chout, :, :])
                                 )
                             )
 
-                            for k_x in range(self.kernel_size):
-                                for k_y in range(self.kernel_size):
+                            for k_x in range(self.kernel_height):
+                                for k_y in range(self.kernel_width):
                                     kernel_grad[chin, chout, k_x, k_y] = np.sum(
                                         X_pad[
-                                            x - start : x + end,
-                                            y - start : y + end,
-                                            chin,
                                             img,
+                                            chin,
+                                            x : x + self.kernel_height,
+                                            y : y + self.kernel_width,
                                         ]
                                         * delta_next[
-                                            x - start : x + end,
-                                            y - start : y + end,
-                                            chout,
                                             img,
+                                            chout,
+                                            x : x + self.kernel_height,
+                                            y : y + self.kernel_width,
                                         ]
                                     )
                                     # Each filter is updated

@@ -26,7 +26,7 @@ def forward_test(X):
         v_stride=2,
         h_stride=2,
         pad="same",
-        act_func=lambda x: x,
+        act_func=LRELU,
         seed=2023,
     )
 
@@ -43,17 +43,18 @@ def backward_test(X):
     layer = Convolution2DLayer(
         input_channels=3,
         feature_maps=64,
-        kernel_size=2,
-        stride=2,
+        kernel_height=2,
+        kernel_width=2,
+        v_stride=2,
+        h_stride=2,
         pad="same",
         act_func=lambda x: x,
         seed=2023,
     )
 
     # Shape of output we're testing with is (128, 128, 64, 3) -> (height, width, feature_maps, num_images)
-    rand_grad = np.random.randn(128, 128, 64, 3)
-
-    layer._backpropagate(X, rand_grad)
+    rand_grad = np.random.randint(0, 10, (3, 64, 128, 128))
+    output = layer._backpropagate(X, rand_grad)
 
 
 def max_pooling_test(X):
@@ -113,15 +114,15 @@ if __name__ == "__main__":
     img_path = "/home/gregz/Files/CNN/data/luna.JPG"
     print(img_path)
     image = imageio.imread(img_path)
-    images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 1))
-    for i in range(1):
+    images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 3))
+    for i in range(3):
         images[:, :, :, i] = image[:, :, :]
 
     images = images.transpose(3, 2, 0, 1)
     # init_test()
-    forward_test(images)
+    # forward_test(images)
 
-    # backward_test(images)
+    backward_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
