@@ -510,7 +510,11 @@ class Pooling2DLayer(Layer):
         delta_input = np.ndarray((self.input_shape))
         
         for img in range(delta_input.shape[0]): 
-            for 
+            for fmap in range(delta_input.shape[1]):
+                for x in range(delta_input.shape[2]): 
+                    for y in range(delta_input.shape[3]): 
+
+
 
 class FlattenLayer(Layer):
     def __init__(self, seed=None):
