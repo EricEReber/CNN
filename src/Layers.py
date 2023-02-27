@@ -505,7 +505,7 @@ class Pooling2DLayer(Layer):
 
         return output
 
-    def _feedbackward(self, delta_next, X=[]):
+    def _backpropagate(self, delta_next, X=[]):
         delta_input = np.zeros((self.input_shape))
 
         for img in range(delta_next.shape[0]):
@@ -516,10 +516,8 @@ class Pooling2DLayer(Layer):
                             window = X[
                                 img,
                                 fmap,
-                                (x * self.stride) : (x * self.stride)
-                                + self.kernel_size,
-                                (y * self.stride) : (y * self.stride)
-                                + self.kernel_size,
+                                (x * self.v_s) : (x * self.v_s) + self.kh,
+                                (y * self.h_s) : (y * self.h_s) + self.kw,
                             ]
                             i, j = np.unravel_index(window.argmax(), window.shape)
 
@@ -529,10 +527,10 @@ class Pooling2DLayer(Layer):
                             delta_input[
                                 img,
                                 fmap,
-                                (x * self.stride) : (x * self.stride) + k_h,
-                                (y * self.stride) : (y * self.stride) + k_w,
+                                (x * self.v_s) : (x * self.v_s) + self.kh,
+                                (y * self.h_s) : (y * self.h_s) + self.kw,
                             ] = (
-                                delta_next[img, fmap, x, y] / k_h / k_w
+                                delta_next[img, fmap, x, y] / self.kh / self.kw
                             )
         return delta_input
 
