@@ -5,6 +5,7 @@ import warnings
 from src.Schedulers import *
 from src.activationFunctions import *
 from src.costFunctions import *
+from src.ProgressBar import *
 from src.Layers import *
 from autograd import grad, elementwise_grad
 from random import random, seed
@@ -12,6 +13,7 @@ from copy import deepcopy
 from typing import Tuple, Callable
 from sklearn.utils import resample
 from collections import OrderedDict
+
 
 warnings.simplefilter("error")
 
@@ -32,7 +34,7 @@ class CNN:
         self.prediction = None
         self.batches = 1
 
-        self._set_classification()
+        # self._set_classification()
 
     def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None, seed=None):
         if scheduler is None:
@@ -68,26 +70,15 @@ class CNN:
     def add_FlattenLayer(self, seed=None):
         self.layers.append(FlattenLayer(seed))
 
-    def fit(X, t, epochs = 100, lam = 0, X_val = None, t_val = None):
+    def fit_NEW(X, t, epochs=100, lam=0, X_val=None, t_val=None):
+
         # setup
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        val_set = False
-        if X_val is not None and t_val is not None:
-            val_set = True
-
-        # creating arrays for score metrics
-        train_errors = np.empty(epochs)
-        train_errors.fill(np.nan)
-        val_errors = np.empty(epochs)
-        val_errors.fill(np.nan)
-
-        train_accs = np.empty(epochs)
-        train_accs.fill(np.nan)
-        val_accs = np.empty(epochs)
-        val_accs.fill(np.nan)
-
+        progress_bar = ProgressBar(
+            X, t, epochs, self.prediction, self.cost_func, X_val, t_val
+        )
         # reset for consecutive calls to fit()
         for layer in self.layers:
             layer._reset_weights()
@@ -100,12 +91,27 @@ class CNN:
                     feedforward(X_batch)
                     backpropagate(t, lam)
 
+                # reset schedulers for each epoch (some schedulers pass in this call)
+                for layer in self.layers:
+                    if isinstance(layer, FullyConnectedLayer):
+                        layer._reset_scheduler()
+
+                # computing performance metrics
+                if X_val and t_val:
+                    progress_bar.update(
+                        self.predict(X[0, :, :, :]), self.predict(X_val[0, :, :, :])
+                    )
+                else:
+                    progress_bar.update(self.predict(X[0, :, :, :]))
+
         except KeyboardInterrupt:
             pass
 
+        scores_dict = progress_bar.get_scores()
 
+        return scores_dict
 
-    def _feedforward()
+    def _feedforward():
         a = None
         for layer in self.layers():
 
@@ -122,6 +128,8 @@ class CNN:
             else:
                 # TODO implement other types of layers
                 raise NotImplementedError
+
+        return a
 
     def _backpropagate(self, t, lam):
         reversed_layers = self.layers[::-1]
@@ -141,6 +149,71 @@ class CNN:
                 # TODO implement other types of layers
                 raise NotImplementedError
 
+    def fit_TEST_PROGBAR(
+        self,
+        X: np.ndarray,
+        t: np.ndarray,
+        epochs: int = 100,
+        lam: float = 0,
+        batches: int = 1,
+        X_val: np.ndarray = None,
+        t_val: np.ndarray = None,
+    ):
+        # for consecutive calls of fit()
+        for layer in self.layers:
+            layer._reset_weights()
+
+        # setup
+        if self.seed is not None:
+            np.random.seed(self.seed)
+
+        progress_bar = ProgressBar(
+            X, t, epochs, self.prediction, self.cost_func, X_val, t_val
+        )
+
+        batch_size = X.shape[0] // self.batches
+
+        X, t = resample(X, t)
+
+        try:
+            for epoch in range(epochs):
+                for batch_num in range(self.batches):
+
+                    if batch_num == self.batches - 1:
+                        # If the for loop has reached the last batch_num, take all thats left
+                        X_batch = X[batch_num * batch_size :, :]
+                        t_batch = t[batch_num * batch_size :, :]
+                    else:
+                        X_batch = X[
+                            batch_num * batch_size : (batch_num + 1) * batch_size, :
+                        ]
+                        t_batch = t[
+                            batch_num * batch_size : (batch_num + 1) * batch_size, :
+                        ]
+
+                    self._feedforward(X_batch)
+                    self._backpropagate(t_batch, lam)
+
+                # reset schedulers for each epoch (some schedulers pass in this call)
+                for layer in self.layers:
+                    if isinstance(layer, FullyConnectedLayer):
+                        layer._reset_scheduler()
+
+                if X_val is not None and t_val is not None:
+                    progress_bar.update(
+                        self.predict(X), self.predict(X_val)
+                    )
+                else:
+                    progress_bar.update(self.predict(X))
+        except KeyboardInterrupt:
+            # allows for stopping training at any point and seeing the result
+            pass
+
+        # visualization of training progression (similiar to tensorflow progression bar)
+        scores_dict = progress_bar.get_scores()
+
+        return scores_dict
+
     def fit(
         # TODO does not work for ConvLayers, only works for FFNN
         # for example, self.batches are specified in (H, W, FM, B), but here we
@@ -152,6 +225,7 @@ class CNN:
         t: np.ndarray,
         epochs: int = 100,
         lam: float = 0,
+        batches: int = 1,
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
     ):
@@ -178,7 +252,7 @@ class CNN:
         val_accs = np.empty(epochs)
         val_accs.fill(np.nan)
 
-        batch_size = X.shape[0] // self.batches
+        batch_size = X.shape[0] // batches
 
         X, t = resample(X, t)
 
@@ -188,9 +262,9 @@ class CNN:
 
         try:
             for epoch in range(epochs):
-                for batch_num in range(self.batches):
+                for batch_num in range(batches):
 
-                    if batch_num == self.batches - 1:
+                    if batch_num == batches - 1:
                         # If the for loop has reached the last batch_num, take all thats left
                         X_batch = X[batch_num * batch_size :, :]
                         t_batch = t[batch_num * batch_size :, :]
@@ -325,49 +399,50 @@ class CNN:
         assert prediction.size == target.size
         return np.average((target == prediction))
 
-    def _set_classification(self):
-        self.classification = False
-        if (
-            self.cost_func.__name__ == "CostLogReg"
-            or self.cost_func.__name__ == "CostCrossEntropy"
-        ):
-            self.classification = True
-
-    def _progress_bar(self, progression, **kwargs):
-        """
-        Description:
-        ------------
-            Displays progress of training
-        """
-        print_length = 40
-        num_equals = int(progression * print_length)
-        num_not = print_length - num_equals
-        arrow = ">" if num_equals > 0 else ""
-        bar = "[" + "=" * (num_equals - 1) + arrow + "-" * num_not + "]"
-        perc_print = self._fmt(progression * 100, N=5)
-        line = f"  {bar} {perc_print}% "
-
-        for key in kwargs:
-            if kwargs[key]:
-                value = self._fmt(kwargs[key], N=4)
-                line += f"| {key}: {value} "
-        print(line, end="\r")
-        return len(line)
-
-    def _fmt(self, value, N=4):
-        """
-        Description:
-        ------------
-            Formats decimal numbers for progress bar
-        """
-        if value > 0:
-            v = value
-        elif value < 0:
-            v = -10 * value
-        else:
-            v = 1
-        n = 1 + math.floor(math.log10(v))
-        if n >= N - 1:
-            return str(round(value))
-            # or overflow
-        return f"{value:.{N-n-1}f}"
+    # Commented out for testing of ProgressBar
+    # def _set_classification(self):
+    #     self.classification = False
+    #     if (
+    #         self.cost_func.__name__ == "CostLogReg"
+    #         or self.cost_func.__name__ == "CostCrossEntropy"
+    #     ):
+    #         self.classification = True
+    #
+    # def _progress_bar(self, progression, **kwargs):
+    #     """
+    #     Description:
+    #     ------------
+    #         Displays progress of training
+    #     """
+    #     print_length = 40
+    #     num_equals = int(progression * print_length)
+    #     num_not = print_length - num_equals
+    #     arrow = ">" if num_equals > 0 else ""
+    #     bar = "[" + "=" * (num_equals - 1) + arrow + "-" * num_not + "]"
+    #     perc_print = self._fmt(progression * 100, N=5)
+    #     line = f"  {bar} {perc_print}% "
+    #
+    #     for key in kwargs:
+    #         if kwargs[key]:
+    #             value = self._fmt(kwargs[key], N=4)
+    #             line += f"| {key}: {value} "
+    #     print(line, end="\r")
+    #     return len(line)
+    #
+    # def _fmt(self, value, N=4):
+    #     """
+    #     Description:
+    #     ------------
+    #         Formats decimal numbers for progress bar
+    #     """
+    #     if value > 0:
+    #         v = value
+    #     elif value < 0:
+    #         v = -10 * value
+    #     else:
+    #         v = 1
+    #     n = 1 + math.floor(math.log10(v))
+    #     if n >= N - 1:
+    #         return str(round(value))
+    #         # or overflow
+    #     return f"{value:.{N-n-1}f}"
