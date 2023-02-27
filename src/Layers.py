@@ -462,10 +462,14 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
 
 class Pooling2DLayer(Layer):
-    def __init__(self, kernel_size, stride, pooling="max", seed=2023):
+    def __init__(
+        self, kernel_height, kernel_width, v_stride, h_stride, pooling="max", seed=2023
+    ):
         super().__init__(seed)
-        self.kernel_size = kernel_size
-        self.stride = stride
+        self.kh = kernel_height
+        self.kw = kernel_width
+        self.v_s = v_stride
+        self.h_s = h_stride
         self.pooling = pooling
 
     def _feedforward(self, X):
@@ -473,11 +477,11 @@ class Pooling2DLayer(Layer):
         self.input_shape = X.shape
 
         # Computing the size of the feature maps based on kernel size and the stride parameter
-        new_height = (X.shape[2] - self.kernel_size) // self.stride + 1
+        new_height = (X.shape[2] - self.kh) // self.v_s + 1
         if X.shape[2] == X.shape[3]:
             new_width = new_height
         else:
-            new_width = (X.shape[2] - self.kernel_size) // self.stride + 1
+            new_width = (X.shape[2] - self.kw) // self.h_s + 1
 
         output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width))
 
@@ -486,7 +490,6 @@ class Pooling2DLayer(Layer):
         elif self.pooling == "average":
             self.pooling_action = np.mean
 
-        print(new_height)
         for img in range(output.shape[0]):
             for fmap in range(output.shape[1]):
                 for x in range(new_height):
@@ -495,10 +498,8 @@ class Pooling2DLayer(Layer):
                             X[
                                 img,
                                 fmap,
-                                (x * self.stride) : (x * self.kernel_size)
-                                + self.kernel_size,
-                                (y * self.stride) : (y * self.kernel_size)
-                                + self.kernel_size,
+                                (x * self.v_s) : (x * self.v_s) + self.kh,
+                                (y * self.h_s) : (y * self.h_s) + self.kw,
                             ]
                         )
 

@@ -55,13 +55,15 @@ def backward_test(X):
 
 def max_pooling_test(X):
     pooling_layer = Pooling2DLayer(
-        kernel_size=2,
-        stride=2,
+        kernel_height=2,
+        kernel_width=2,
+        v_stride=2,
+        h_stride=2,
         pooling="max",
     )
 
     mpl_img = pooling_layer._feedforward(X)
-    plt.imshow(mpl_img[0, 2, :, :], vmin=0, vmax=255, aspect="auto")
+    plt.imshow(mpl_img[0, 0, :, :], vmin=0, vmax=255, aspect="auto")
     plt.show()
 
 
