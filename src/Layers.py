@@ -507,13 +507,17 @@ class Pooling2DLayer(Layer):
         
     def _feedbackward(self, delta_next, X=None): 
         
-        delta_input = np.ndarray((self.input_shape))
-        
-        for img in range(delta_input.shape[0]): 
-            for fmap in range(delta_input.shape[1]):
-                for x in range(delta_input.shape[2]): 
-                    for y in range(delta_input.shape[3]): 
-
+        delta_input = np.zeros((self.input_shape))
+       
+        k_h, k_w = self.kernel_size, self.kernel_size 
+        for img in range(delta_next.shape[0]): 
+            for fmap in range(delta_next.shape[1]):
+                for x in range(delta_input.shape[2]. self.stride): 
+                    for y in range(delta_input.shape[3], self.stide): 
+                        
+                        if self.pooling == 'max': 
+                            i,j = np.unravel_index(X[img, fmap, x : x + k_h, y : y + k_w)
+                            delta_input[i,j] = delta_next[img, fmap, x - self.stride, y - self.stride]
 
 
 class FlattenLayer(Layer):
