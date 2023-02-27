@@ -17,7 +17,7 @@ def init_test():
     assert layer.kernel_tensor is not None
 
 
-def forward_test(image):
+def forward_test(X):
     layer = Convolution2DLayer(
         input_channels=3,
         feature_maps=64,
@@ -28,11 +28,12 @@ def forward_test(image):
         seed=2023,
     )
 
-    conv_rest = layer._feedforward(image)
+    conv_rest = layer._feedforward(X)
 
-    assert conv_rest.shape == (128, 128, 64, 3)
+    print(conv_rest.shape)
+    assert conv_rest.shape == (X.shape[0], 64, X.shape[2], X.shape[3])
 
-    plt.imshow(conv_rest[:, :, 0, 0], vmin=0, vmax=255)
+    plt.imshow(conv_rest[0, 0, :, :], vmin=0, vmax=255)
     plt.show()
 
 
@@ -110,17 +111,16 @@ if __name__ == "__main__":
     img_path = "/home/gregz/Files/CNN/data/luna.JPG"
     print(img_path)
     image = imageio.imread(img_path)
-    images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 3))
+    images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 1))
     for i in range(1):
         images[:, :, :, i] = image[:, :, :]
 
     images = images.transpose(3, 2, 0, 1)
-    print(images.shape)
     # init_test()
-    # forward_test(images)
+    forward_test(images)
 
     # backward_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
-    avr_pooling_test(images)
+    # avr_pooling_test(images)

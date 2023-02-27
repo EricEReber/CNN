@@ -221,19 +221,23 @@ class Convolution2DLayer(Layer):
         self,
         input_channels,  # number of maps the input is split into
         feature_maps,  # also known as feature maps
-        kernel_size,
-        stride,
+        kernel_height,
+        kernel_width,
+        v_stride,
+        h_stride,
         pad,
         act_func: Callable,
         seed=None,
     ):
         super().__init__(seed)
-        self.kernel_size = kernel_size
         self.input_channels = input_channels
         self.feature_maps = feature_maps
-        self.stride = stride
-        self.act_func = act_func
+        self.kh = kernel_height
+        self.kw = kernel_width
+        self.vs = v_stride
+        self.hs = h_stride
         self.pad = pad
+        self.act_func = act_func
 
         self._reset_weights()
 
@@ -258,24 +262,25 @@ class Convolution2DLayer(Layer):
 
         X_pad = self._padding(X)
 
-        output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
-
+        # output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
+        output = np.ndarray((X.shape[0], self.feature_maps, X.shape[2], X.shape[3]))
         # Will need this parameter for backpropagation
         self.output_shape = output.shape
 
-        start = self.kernel_size // 2
-        end = start
-        for img in range(X.shape[3]):
+        for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for chout in range(self.feature_maps):
-                    for x in range(start, X.shape[0] + end, self.stride):
-                        for y in range(start, X.shape[1] + end, self.stride):
-                            output[x - start, y - start, chout, img] = np.sum(
-                                X_pad[
-                                    x - start : x + end, y - start : y + end, chin, img
-                                ]
-                                * self.kernel_tensor[chin, chout, :, :]
-                            )
+                    for x in range(0, X.shape[2], self.stride):
+                        for y in range(0, X.shape[3], self.stride):
+
+                            output[img, chout, x, y] = np.sum(X_pad[img, chin, x : x + self.kernel_size, y : y + self.kernel_size] * self.kernel_tensor[chin, chout, :, :])
+
+                            # output[x - start, y - start, chout, img] = np.sum(
+                            #     X_pad[
+                            #         x - start : x + end, y - start : y + end, chin, img
+                            #     ]
+                            #     * self.kernel_tensor[chin, chout, :, :]
+                            # )
 
         """
         for k_x in range(self.kernel_size): 
@@ -352,9 +357,9 @@ class Convolution2DLayer(Layer):
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
         if self.pad == "same":
-            new_height = batch[0, 0, :, :].shape[0] + (kernel_size // 2) * 2
-            new_width = batch[0, 0, :, :].shape[1] + (kernel_size // 2) * 2
-            k_height = kernel_size // 2
+            new_height = batch.shape[2] + (self.kernel_size // 2) * 2
+            new_width = batch.shape[3] + (self.kernel_size // 2) * 2
+            k_height = self.kernel_size // 2
 
             new_tensor = np.ndarray(
                 (batch.shape[0], batch.shape[1], new_height, new_width)
