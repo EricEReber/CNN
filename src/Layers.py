@@ -462,7 +462,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
 
 class Pooling2DLayer(Layer):
-    def __init__(self, seed, kernel_size, stride, pooling="max"):
+    def __init__(self, kernel_size, stride, pooling="max", seed=2023):
         super().__init__(seed)
         self.kernel_size = kernel_size
         self.stride = stride
@@ -473,41 +473,40 @@ class Pooling2DLayer(Layer):
         self.input_shape = X.shape
 
         # Computing the size of the feature maps based on kernel size and the stride parameter
-        new_height = (X[0, 0, :, :].shape[0] - self.kernel_size) / self.stride + 1
-        if X[0, 0, :, :].shape[1] == X[0, 0, :, :].shape[0]:
+        new_height = (X.shape[2] - self.kernel_size) // self.stride + 1
+        if X.shape[2] == X.shape[3]:
             new_width = new_height
         else:
-            new_width = (X[0, 0, :, :].shape[1] - self.kernel_size) / self.stride + 1
+            new_width = (X.shape[2] - self.kernel_size) // self.stride + 1
 
         output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width))
 
         if self.pooling == "max":
             self.pooling_action = np.max
-        else:
+        elif self.pooling == "average":
             self.pooling_action = np.mean
 
-        for img in range(X.shape[0]):
-            for fmap in range(X.shape[1]):
-                new_x, new_y = 0, 0
-                for x in range(0, X.shape[1], self.stride):
-                    for y in range(0, X.shape[2], self.stride):
-                        output[img, fmap, new_x, new_y] = self.pooling_action(
+        print(new_height)
+        for img in range(output.shape[0]):
+            for fmap in range(output.shape[1]):
+                for x in range(new_height):
+                    for y in range(new_width):
+                        output[img, fmap, x, y] = self.pooling_action(
                             X[
                                 img,
                                 fmap,
-                                x : x + self.kernel_size,
-                                y : y + self.kernel_size,
+                                (x * self.stride) : (x * self.kernel_size)
+                                + self.kernel_size,
+                                (y * self.stride) : (y * self.kernel_size)
+                                + self.kernel_size,
                             ]
                         )
-                    new_y += 1
-                new_x += 1
 
         return output
 
     def _feedbackward(self, delta_next, X=[]):
         delta_input = np.zeros((self.input_shape))
 
-        k_h, k_w = self.kernel_size, self.kernel_size
         for img in range(delta_next.shape[0]):
             for fmap in range(delta_next.shape[1]):
                 for x in range(delta_next.shape[2]):
@@ -516,8 +515,10 @@ class Pooling2DLayer(Layer):
                             window = X[
                                 img,
                                 fmap,
-                                (x * self.stride) : (x * self.stride) + k_h,
-                                (y * self.stride) : (y * self.stride) + k_w,
+                                (x * self.stride) : (x * self.stride)
+                                + self.kernel_size,
+                                (y * self.stride) : (y * self.stride)
+                                + self.kernel_size,
                             ]
                             i, j = np.unravel_index(window.argmax(), window.shape)
 
