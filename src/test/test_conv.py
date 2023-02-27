@@ -81,10 +81,29 @@ def max_pooling_back_test(X, delta):
     delta_grad = np.random.rand(
         mpl_img.shape[0], mpl_img.shape[1], mpl_img.shape[2], mpl_img.shape[3]
     )
-    print(delta_grad.shape)
     rv_mpl_img = pooling_layer._backpropagate(delta_grad, X)
+
+
+def avr_pooling_test(X):
+    pooling_layer = Pooling2DLayer(
+        kernel_height=2,
+        kernel_width=2,
+        v_stride=2,
+        h_stride=2,
+        pooling="average",
+    )
+
+    avr_img = pooling_layer._feedforward(X)
+    print(avr_img[0, 0, 0:4, 0:4])
+
+    delta_grad = np.random.rand(
+        avr_img.shape[0], avr_img.shape[1], avr_img.shape[2], avr_img.shape[3]
+    )
+
+    print(delta_grad[0, 0, 0:2, 0:2])
+    rv_avr_img = pooling_layer._backpropagate(delta_grad)
     print(X[0, 0, 0:4, 0:4])
-    print(rv_mpl_img[0, 0, 0:4, 0:4])
+    print(rv_avr_img[0, 0, 0:4, 0:4])
 
 
 if __name__ == "__main__":
@@ -102,4 +121,6 @@ if __name__ == "__main__":
 
     # backward_test(images)
     # max_pooling_test(images)
-    max_pooling_back_test(images, images)
+    # max_pooling_back_test(images, images)
+
+    avr_pooling_test(images)
