@@ -23,7 +23,7 @@ class Layer:
     def _backpropagate(self):
         raise NotImplementedError
 
-    def _reset_weights(self):
+    def _reset_weights(self, prev_nodes):
         raise NotImplementedError
 
 
@@ -47,7 +47,7 @@ class FullyConnectedLayer(Layer):
         self.a_matrix = None
         self.z_matrix = None
 
-        self._reset_weights()
+        # self._reset_weights()
 
     def _feedforward(self, X):
         if self.is_first_layer:
@@ -100,13 +100,14 @@ class FullyConnectedLayer(Layer):
 
         return self.weights, delta_matrix
 
-    def _reset_weights(self):
+    def _reset_weights(self, prev_nodes):
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        if not self.is_first_layer:
-            bias = 1
-            self.weights = np.random.randn(self.nodes[0] + bias, self.nodes[1])
+        # if not self.is_first_layer:
+        bias = 1
+        self.weights = np.random.randn(prev_nodes + bias, self.nodes)
+        return self.nodes
 
     def _reset_scheduler(self):
         self.scheduler_weight.reset()
@@ -119,7 +120,7 @@ class FullyConnectedLayer(Layer):
 class OutputLayer(FullyConnectedLayer):
     def __init__(
         self,
-        nodes: tuple[int],
+        nodes: int,
         output_func: Callable,
         cost_func: Callable,
         scheduler: Scheduler,
@@ -132,7 +133,7 @@ class OutputLayer(FullyConnectedLayer):
         self.a_matrix = None
         self.z_matrix = None
 
-        self._reset_weights()
+        # self._reset_weights()
         self.set_prediction()  # Decides what type of prediction the output layer performs
 
     def _feedforward(self, X: np.ndarray):
@@ -201,12 +202,14 @@ class OutputLayer(FullyConnectedLayer):
         else:
             self.prediction = "Mulit-class"
 
-    def _reset_weights(self):
+    def _reset_weights(self, prev_nodes):
         if self.seed is not None:
             np.random.seed(self.seed)
 
         bias = 1
-        self.weights = np.random.rand(self.nodes[0] + bias, self.nodes[1])
+        self.weights = np.random.rand(prev_nodes + bias, self.nodes)
+
+        return self.nodes
 
     def _reset_scheduler(self):
         self.scheduler_weight.reset()
@@ -593,10 +596,12 @@ class FlattenLayer(Layer):
     def _feedforward(self, batch):
         self.input_shape = batch.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
-        return batch.reshape(batch.shape[0] * batch.shape[1] * batch.shape[2], 1)
+        batch = batch.reshape(1, batch.shape[0] * batch.shape[1] * batch.shape[2])
+        self.nodes = [0, batch.shape[1]]
+        return batch
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)
 
-    def _reset_weights(self):
+    def _reset_weights(self, prev_nodes):
         pass
