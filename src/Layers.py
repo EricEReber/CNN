@@ -266,23 +266,33 @@ class Convolution2DLayer(Layer):
         """
 
         X_pad = self._padding(X)
-
+        new_height = (X.shape[2] - self.kernel_height) // self.v_stride + 1
+        new_width = (X.shape[3] - self.kernel_width) // self.h_stride + 1
         # output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
-        output = np.ndarray((X.shape[0], self.feature_maps, X.shape[2], X.shape[3]))
+        output = np.ndarray(
+            (
+                X.shape[0],
+                self.feature_maps,
+                new_height,
+                new_width,
+            )
+        )
         # Will need this parameter for backpropagation
         self.output_shape = output.shape
 
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
-                    for x in range(0, X.shape[2], self.v_stride):
-                        for y in range(0, X.shape[3], self.h_stride):
+                    for x in range(new_height):
+                        for y in range(new_width):
                             output[img, fmap, x, y] = np.sum(
                                 X_pad[
                                     img,
                                     chin,
-                                    x : x + self.kernel_height,
-                                    y : y + self.kernel_width,
+                                    (x * self.v_stride) : (x * self.v_stride)
+                                    + self.kernel_height,
+                                    (y * self.h_stride) : (y * self.h_stride)
+                                    + self.kernel_width,
                                 ]
                                 * self.kernel_tensor[chin, fmap, :, :]
                             )
@@ -387,51 +397,71 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         self,
         input_channels,  # number of maps the input is split into
         feature_maps,  # also known as feature maps
-        kernel_size,
-        stride,
+        kernel_height,
+        kernel_width,
+        v_stride,
+        h_stride,
         pad,
         act_func: Callable,
         seed=None,
     ):
-        super().__init__(self, seed, kernel_size, stride, pad, act_func, seed)
+        super().__init__(
+            input_channels,
+            feature_maps,
+            kernel_height,
+            kernel_width,
+            v_stride,
+            h_stride,
+            pad,
+            act_func,
+            seed,
+        )
 
-    def _extract_windows(self, batch, kernel_size, stride=1):
+    def _extract_windows(self, batch):
         # pad the images
-        batch_pad = self._padding(batch, kernel_size)
+        # TODO: Change padding so that it takes the height and width of kernel as arguments
+        batch_pad = self._padding(batch)
 
         windows = []
-        img_height, img_width = batch.shape[2:]
+        img_height, img_width = batch_pad.shape[2:]
 
         # For each location in the image...
-        for h in range(kernel_size // 2, img_height + 1, stride):
-            for w in range(kernel_size // 2, img_width + 1, stride):
+        for h in range(0, img_height - self.kernel_height, self.v_stride):
+            for w in range(0, img_width - self.kernel_width, self.h_stride):
                 # ...get an image patch of size [fil_size, fil_size]
                 window = batch_pad[
                     :,
                     :,
-                    h - kernel_size // 2 : h + kernel_size // 2 + 1,
-                    w - kernel_size // 2 : w + kernel_size // 2 + 1,
+                    h : h + self.kernel_height,
+                    w : w + self.kernel_width,
                 ]
                 windows.append(window)
+
+        return np.stack(windows)
 
     def _feedforward(self, batch):
         kernel = self.kernel_tensor
 
-        windows = self._extract_windows(batch, kernel.shape[2])
+        new_height = (batch.shape[2] - self.kernel_height) // self.v_stride + 1
+        new_width = (batch.shape[3] - self.kernel_width) // self.h_stride + 1
+        windows = self._extract_windows(batch)
         windows = windows.transpose(1, 0, 2, 3, 4).reshape(
-            batch.shape[0], batch.shape[2] * batch.shape[3], -1
+            batch.shape[0],
+            new_height * new_width,
+            -1,
         )
-
         kernel = kernel.transpose(0, 2, 3, 1).reshape(
-            kernel.shape[0] * kernel.shape[2] * kernel.shape[3], -1
+            kernel.shape[0] * kernel.shape[2] * kernel.shape[3],
+            -1,
         )
-
         output = (windows @ kernel).reshape(
-            batch.shape[0], batch.shape[2], batch.shape[3], -1
+            batch.shape[0],
+            new_height,
+            new_width,
+            -1,
         )
-
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output.transpose(0, 3, 1, 2))
+        return self.act_func(output.transpose(0, 3, 1, 2) // self.input_channels)
 
     def _backpropagate(self, batch, output_grad):
         act_derivative = derivate(self.act_func)
@@ -439,7 +469,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
         kernel = self.kernel_tensor
         # Computing the kernel gradient
-        windows = _extract_windows(batch, kernel.shape[2]).reshape(
+        windows = _extract_windows(batch).reshape(
             batch.shape[0] * batch.shape[2] * batch.shape[3], -1
         )
         output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(
@@ -452,9 +482,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         kernel_grad = kernel_grad.transpose(0, 3, 1, 2)
 
         # Computing the input gradient
-        windows = _extract_windows(output_grad, kernel.shape[2]).transpose(
-            1, 0, 2, 3, 4
-        )
+        windows = _extract_windows(output_grad).transpose(1, 0, 2, 3, 4)
         windows = windows.reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
 
         kernel_r = kernel.reshape(batch.shape[1], -1)
@@ -536,17 +564,24 @@ class Pooling2DLayer(Layer):
                             i, j = np.unravel_index(window.argmax(), window.shape)
 
                             delta_input[
-                                img, fmap, (x * self.v_stride) + i, (y * self.h_stride) + j
+                                img,
+                                fmap,
+                                (x * self.v_stride) + i,
+                                (y * self.h_stride) + j,
                             ] += delta_next[img, fmap, x, y]
 
                         if self.pooling == "average":
                             delta_input[
                                 img,
                                 fmap,
-                                (x * self.v_stride) : (x * self.v_stride) + self.kernel_height,
-                                (y * self.h_stride) : (y * self.h_stride) + self.kernel_width,
+                                (x * self.v_stride) : (x * self.v_stride)
+                                + self.kernel_height,
+                                (y * self.h_stride) : (y * self.h_stride)
+                                + self.kernel_width,
                             ] = (
-                                delta_next[img, fmap, x, y] / self.kernel_height / self.kernel_width
+                                delta_next[img, fmap, x, y]
+                                / self.kernel_height
+                                / self.kernel_width
                             )
         return delta_input
 

@@ -3,6 +3,7 @@ from src.FFNN import FFNN
 import numpy as np
 import imageio.v3 as imageio
 import matplotlib.pyplot as plt
+from opt_conv import _extract_windows
 
 np.random.seed(2023)
 
@@ -26,16 +27,34 @@ def forward_test(X):
         v_stride=2,
         h_stride=2,
         pad="same",
-        act_func=LRELU,
+        act_func=lambda x: x,
         seed=2023,
     )
 
     conv_rest = layer._feedforward(X)
 
-    print(conv_rest.shape)
-    assert conv_rest.shape == (X.shape[0], 64, X.shape[2], X.shape[3])
+    # assert conv_rest.shape == (X.shape[0], 64, X.shape[2], X.shape[3])
 
     plt.imshow(conv_rest[0, 0, :, :], vmin=0, vmax=255)
+    plt.show()
+
+
+def forward_opt_test(X):
+    layer = Convolution2DLayerOPT(
+        input_channels=3,
+        feature_maps=64,
+        kernel_height=2,
+        kernel_width=2,
+        v_stride=2,
+        h_stride=2,
+        pad="same",
+        act_func=lambda x: x,
+        seed=2023,
+    )
+
+    conv_rest = layer._feedforward(X)
+    print(conv_rest.shape)
+    plt.imshow(conv_rest[0, 25, :, :], vmin=0, vmax=255)
     plt.show()
 
 
@@ -121,8 +140,9 @@ if __name__ == "__main__":
     images = images.transpose(3, 2, 0, 1)
     # init_test()
     # forward_test(images)
+    forward_opt_test(images)
 
-    backward_test(images)
+    # backward_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
