@@ -158,11 +158,11 @@ if __name__ == "__main__":
 
     images = images.transpose(3, 2, 0, 1)
     # init_test()
-    # forward_test(images)
+    forward_test(images)
     # forward_opt_test(images)
 
     # backward_test(images)
-    backward_opt_test(images)
+    # backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
