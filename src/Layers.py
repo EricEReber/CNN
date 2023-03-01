@@ -262,20 +262,12 @@ class Convolution2DLayer(Layer):
         """
 
         X_pad = self._padding(X)
-        
+
         new_height = int(
-            np.floor(
-                (X.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
-                / self.v_stride
-            )
-            + 1
+            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride) + 1
         )
         new_width = int(
-            np.floor(
-                (X.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
-                / self.h_stride
-            )
-            + 1
+            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride) + 1
         )
 
         # output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
@@ -319,6 +311,7 @@ class Convolution2DLayer(Layer):
         return self.act_func(output)
 
     def _backpropagate(self, X, delta_next):
+        # TODO: Fix backprog for stride larger than one
         delta = np.zeros((X.shape))
         print(delta.shape)
         kernel_grad = np.zeros((self.kernel_tensor.shape))
@@ -342,7 +335,7 @@ class Convolution2DLayer(Layer):
                             delta[img, chin, x, y] = np.sum(
                                 delta_next[
                                     img,
-                                    chout,
+                                    fmap,
                                     x : x + self.kernel_height,
                                     y : y + self.kernel_width,
                                 ]
@@ -353,7 +346,7 @@ class Convolution2DLayer(Layer):
 
                             for k_x in range(self.kernel_height):
                                 for k_y in range(self.kernel_width):
-                                    kernel_grad[chin, chout, k_x, k_y] = np.sum(
+                                    kernel_grad[chin, fmap, k_x, k_y] = np.sum(
                                         X_pad[
                                             img,
                                             chin,
@@ -465,27 +458,32 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                         values = batch_pad[
                             :, :, h : h + self.kernel_height, w : w + self.kernel_width
                         ]
-                        rest = self.kernel_height % self.v_stride 
-                        window = values[:, :,
-                            : values.shape[2] - self.v_stride + rest , : values.shape[3] - self.v_stride + rest
+                        rest = self.kernel_height % self.v_stride
+                        window = values[
+                            :,
+                            :,
+                            : values.shape[2] - self.v_stride + rest,
+                            : values.shape[3] - self.v_stride + rest,
                         ]
                         print(window.shape)
 
                         ind = 1
                         for i in range(self.kernel_height // self.v_stride):
                             for j in range(self.h_stride - 1):
-                                window = np.insert(window, ind, 0, axis=2) 
-                            for i in range(self.v_stride - 1): 
+                                window = np.insert(window, ind, 0, axis=2)
+                            for i in range(self.v_stride - 1):
                                 window = np.insert(window, ind, 0, axis=3)
                             ind += self.v_stride
-                        import sys 
+                        import sys
+
                         print(window.shape)
-                        sys.exit() 
+                        sys.exit()
                         windows.append(window)
 
             return np.stack(windows)
 
     def _feedforward(self, batch):
+
         kernel = self.kernel_tensor
 
         new_height = int(
@@ -543,6 +541,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             )
             + 1
         )
+        print(new_height, new_width)
         kernel = self.kernel_tensor
 
         windows = self._extract_windows(batch, "image").reshape(

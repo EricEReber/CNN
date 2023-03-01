@@ -43,8 +43,8 @@ def forward_opt_test(X):
     layer = Convolution2DLayerOPT(
         input_channels=3,
         feature_maps=64,
-        kernel_height=3,
-        kernel_width=3,
+        kernel_height=4,
+        kernel_width=4,
         v_stride=2,
         h_stride=2,
         pad="same",
@@ -62,8 +62,8 @@ def backward_test(X):
     layer = Convolution2DLayer(
         input_channels=3,
         feature_maps=64,
-        kernel_height=3,
-        kernel_width=2,
+        kernel_height=4,
+        kernel_width=4,
         v_stride=2,
         h_stride=2,
         pad="same",
@@ -72,24 +72,31 @@ def backward_test(X):
     )
 
     # Shape of output we're testing with is (128, 128, 64, 3) -> (height, width, feature_maps, num_images)
-    rand_grad = np.random.randint(0, 10, (3, 64, 128, 128))
+    rand_grad = np.random.randint(0, 10, (3, 64, 68, 68))
     output = layer._backpropagate(X, rand_grad)
 
 
 def backward_opt_test(X):
+    kernel_size = 7
+    stride = 2
+
     layer = Convolution2DLayerOPT(
         input_channels=3,
         feature_maps=64,
-        kernel_height=3,
-        kernel_width=3,
-        v_stride=2,
-        h_stride=2,
+        kernel_height=kernel_size,
+        kernel_width=kernel_size,
+        v_stride=stride,
+        h_stride=stride,
         pad="same",
         act_func=lambda x: x,
         seed=2023,
     )
 
-    rand_grad = np.random.randint(0, 10, (3, 64, 64, 64))
+    new_height = int(
+        np.floor((X.shape[2] + ((kernel_size // 2) * 2) - kernel_size) / stride) + 1
+    )
+    new_width = new_height
+    rand_grad = np.random.randint(0, 10, (3, 64, new_height, new_width))
     input_grad = layer._backpropagate(X, rand_grad)
 
     print(input_grad.shape)
@@ -158,10 +165,10 @@ if __name__ == "__main__":
 
     images = images.transpose(3, 2, 0, 1)
     # init_test()
-    forward_test(images)
+    # forward_test(images)
     # forward_opt_test(images)
 
-    # backward_test(images)
+    backward_test(images)
     # backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
