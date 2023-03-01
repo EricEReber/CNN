@@ -72,13 +72,13 @@ def backward_test(X):
     )
 
     # Shape of output we're testing with is (128, 128, 64, 3) -> (height, width, feature_maps, num_images)
-    rand_grad = np.random.randint(0, 10, (3, 64, 68, 68))
+    rand_grad = np.random.randint(0, 10, (3, 64, 64, 64))
     output = layer._backpropagate(X, rand_grad)
 
 
 def backward_opt_test(X):
-    kernel_size = 7
-    stride = 2
+    kernel_size = 5
+    stride = 1
 
     layer = Convolution2DLayerOPT(
         input_channels=3,
@@ -93,9 +93,11 @@ def backward_opt_test(X):
     )
 
     new_height = int(
-        np.floor((X.shape[2] + ((kernel_size // 2) * 2) - kernel_size) / stride) + 1
+        np.floor((X.shape[2] + ((kernel_size // 2) * 2) - kernel_size) / stride)
+        + kernel_size % 2
     )
     new_width = new_height
+    print(new_height)
     rand_grad = np.random.randint(0, 10, (3, 64, new_height, new_width))
     input_grad = layer._backpropagate(X, rand_grad)
 
@@ -168,8 +170,8 @@ if __name__ == "__main__":
     # forward_test(images)
     # forward_opt_test(images)
 
-    backward_test(images)
-    # backward_opt_test(images)
+    # backward_test(images)
+    backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
