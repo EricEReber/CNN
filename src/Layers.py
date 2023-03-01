@@ -264,13 +264,12 @@ class Convolution2DLayer(Layer):
         X_pad = self._padding(X)
 
         new_height = int(
-            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride) + 1
+            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride) + (self.kernel_height % 2)
         )
         new_width = int(
-            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride) + 1
+            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride) + (self.kernel_width % 2)
         )
 
-        # output = np.ndarray((X.shape[0], X.shape[1], self.feature_maps, X.shape[3]))
         output = np.ndarray(
             (
                 X.shape[0],
