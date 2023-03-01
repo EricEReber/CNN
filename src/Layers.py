@@ -417,39 +417,85 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             seed,
         )
 
-    def _extract_windows(self, batch):
+    def _extract_windows(self, batch, batch_type="image"):
         # pad the images
         # TODO: Change padding so that it takes the height and width of kernel as arguments
         batch_pad = self._padding(batch)
 
         windows = []
         img_height, img_width = batch_pad.shape[2:]
+        if batch_type == "image":
+            # For each location in the image...
+            for h in range(0, img_height - self.kernel_height + 1, self.v_stride):
+                for w in range(0, img_width - self.kernel_width + 1, self.h_stride):
+                    # ...get an image patch of size [fil_size, fil_size]
 
-        # For each location in the image...
-        for h in range(0, img_height - self.kernel_height, self.v_stride):
-            for w in range(0, img_width - self.kernel_width, self.h_stride):
-                # ...get an image patch of size [fil_size, fil_size]
-                window = batch_pad[
-                    :,
-                    :,
-                    h : h + self.kernel_height,
-                    w : w + self.kernel_width,
-                ]
-                windows.append(window)
+                    window = batch_pad[
+                        :,
+                        :,
+                        h : h + self.kernel_height,
+                        w : w + self.kernel_width,
+                    ]
+                    windows.append(window)
+
+            return np.stack(windows)
+
+        if batch_type == "grad":
+            for h in range(img_height - self.kernel_height + 1):
+                for w in range(img_width - self.kernel_width + 1):
+                    # ...get an image patch of size [fil_size, fil_size]
+
+                    if self.v_stride == 1 and self.h_stride == 1:
+                        window = batch_pad[
+                            :, :, h : h + self.kernel_height, w : w + self.kernel_width
+                        ]
+                    else:
+                        # TODO: This functionality needs improvement for asymmetric kernels
+                        values = batch_pad[
+                            :, :, h : h + self.kernel_height, w : w + self.kernel_width
+                        ]
+                        window = values[
+                            : values.shape[0] - self.v_stride, : values.shape[1] - self.v_stride
+                        ]
+                        ind = 1
+                        for i in range(self.kernel_height // self.v_stride):
+                            for j in range(self.h_stride - 1):
+                                window = np.insert(window, ind, 0, axis=0) 
+                            for i in range(self.v_stride - 1): 
+                                window = np.insert(window, ind, 0, axis=1)
+                            ind += self.v_stride
+
+                    windows.append(window)
 
         return np.stack(windows)
 
     def _feedforward(self, batch):
         kernel = self.kernel_tensor
 
-        new_height = (batch.shape[2] - self.kernel_height) // self.v_stride + 1
-        new_width = (batch.shape[3] - self.kernel_width) // self.h_stride + 1
+        new_height = int(
+            np.floor(
+                (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
+                / self.v_stride
+            )
+            + 1
+        )
+        new_width = int(
+            np.floor(
+                (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
+                / self.h_stride
+            )
+            + 1
+        )
+
+        print(new_height, new_width)
         windows = self._extract_windows(batch)
+        print(windows.shape)
         windows = windows.transpose(1, 0, 2, 3, 4).reshape(
             batch.shape[0],
             new_height * new_width,
             -1,
         )
+        print(windows.shape)
         kernel = kernel.transpose(0, 2, 3, 1).reshape(
             kernel.shape[0] * kernel.shape[2] * kernel.shape[3],
             -1,
@@ -461,31 +507,58 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             -1,
         )
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output.transpose(0, 3, 1, 2) // self.input_channels)
+        return self.act_func(output.transpose(0, 3, 1, 2) / 9)
 
     def _backpropagate(self, batch, output_grad):
         act_derivative = derivate(self.act_func)
         output_grad = act_derivative(output_grad)
 
-        kernel = self.kernel_tensor
-        # Computing the kernel gradient
-        windows = _extract_windows(batch).reshape(
-            batch.shape[0] * batch.shape[2] * batch.shape[3], -1
+        new_height = int(
+            np.floor(
+                (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
+                / self.v_stride
+            )
+            + 1
         )
-        output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(
-            batch.shape[0] * batch.shape[2] * batch.shape[3], -1
+        new_width = int(
+            np.floor(
+                (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
+                / self.h_stride
+            )
+            + 1
+        )
+        kernel = self.kernel_tensor
+
+        windows = self._extract_windows(batch, "image").reshape(
+            batch.shape[0] * new_height * new_width, -1
         )
 
-        kernel_grad = (windows.T @ output_grad_tr).reshape(
-            kernel.shape[0], kernel.shape[2], kernel.shape[3], kernel.shape[1]
+        output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(
+            batch.shape[0] * new_height * new_width, -1
         )
-        kernel_grad = kernel_grad.transpose(0, 3, 1, 2)
+
+        kernel_grad = (
+            (windows.T @ output_grad_tr)
+            .reshape(kernel.shape[0], kernel.shape[2], kernel.shape[3], kernel.shape[1])
+            .transpose(0, 3, 1, 2)
+        )
 
         # Computing the input gradient
-        windows = _extract_windows(output_grad).transpose(1, 0, 2, 3, 4)
-        windows = windows.reshape(batch.shape[0] * batch.shape[2] * batch.shape[3], -1)
+        windows_out = self._extract_windows(output_grad, "grad")
 
-        kernel_r = kernel.reshape(batch.shape[1], -1)
+        print(windows_out.shape)
+        windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
+            batch.shape[0] * batch.shape[2] * batch.shape[3],
+            -1,
+        )
+
+        print(f"{windows_out.shape=}")
+        kernel_r = kernel.reshape(self.input_channels, -1)
+        print(f"{kernel_r.shape=}")
+
+        import sys
+
+        sys.exit()
         input_grad = (windows @ kernel_r.T).reshape(
             batch.shape[0], batch.shape[2], batch.shape[3], kernel.shape[0]
         )
