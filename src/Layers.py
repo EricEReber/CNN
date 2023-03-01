@@ -41,31 +41,24 @@ class FullyConnectedLayer(Layer):
         self.act_func = act_func
         self.scheduler_weight = copy(scheduler)
         self.scheduler_bias = copy(scheduler)
-        self.is_first_layer = is_first_layer
 
         self.weights = None
         self.a_matrix = None
         self.z_matrix = None
 
-        # self._reset_weights()
-
     def _feedforward(self, X):
-        if self.is_first_layer:
-            self.a_matrix = X
-            self.z_matrix = X
-        else:
-            if len(X.shape) == 1:
-                X = X.reshape((1, X.shape[0]))
+        if len(X.shape) == 1:
+            X = X.reshape((1, X.shape[0]))
 
-            self.z_matrix = X @ self.weights
+        self.z_matrix = X @ self.weights
 
-            self.a_matrix = self.act_func(self.z_matrix)
-            bias = np.ones((X.shape[0], 1)) * 0.01
-            self.a_matrix = np.hstack([bias, self.a_matrix])
+        self.a_matrix = self.act_func(self.z_matrix)
+        bias = np.ones((X.shape[0], 1)) * 0.01
+        self.a_matrix = np.hstack([bias, self.a_matrix])
 
         return self.a_matrix
 
-    def _backpropagate(self, weights_next, delta_next, a_next, lam):
+    def _backpropagate(self, weights_next, delta_next, a_prev, lam):
         activation_derivative = derivate(self.act_func)
 
         delta_matrix = (weights_next[1:, :] @ delta_next.T).T * activation_derivative(
@@ -74,14 +67,14 @@ class FullyConnectedLayer(Layer):
 
         gradient_weights = np.zeros(
             (
-                a_next[:, 1:].shape[0],
-                a_next[:, 1:].shape[1],
+                a_prev[:, 1:].shape[0],
+                a_prev[:, 1:].shape[1],
                 delta_matrix.shape[1],
             )
         )
 
         for i in range(len(delta_matrix)):
-            gradient_weights[i, :, :] = np.outer(a_next[i, 1:], delta_matrix[i, :])
+            gradient_weights[i, :, :] = np.outer(a_prev[i, 1:], delta_matrix[i, :])
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
@@ -146,7 +139,7 @@ class OutputLayer(FullyConnectedLayer):
 
         return self.a_matrix
 
-    def _backpropagate(self, target, a_next, lam):
+    def _backpropagate(self, target, a_prev, lam):
         # Again, remember that in the OutputLayer the activation function is the output function
         activation_derivative = derivate(self.act_func)
 
@@ -160,14 +153,14 @@ class OutputLayer(FullyConnectedLayer):
 
         gradient_weights = np.zeros(
             (
-                a_next[:, 1:].shape[0],
-                a_next[:, 1:].shape[1],
+                a_prev[:, 1:].shape[0],
+                a_prev[:, 1:].shape[1],
                 delta_matrix.shape[1],
             )
         )
 
         for i in range(len(delta_matrix)):
-            gradient_weights[i, :, :] = np.outer(a_next[i, 1:], delta_matrix[i, :])
+            gradient_weights[i, :, :] = np.outer(a_prev[i, 1:], delta_matrix[i, :])
 
         gradient_weights = np.mean(gradient_weights, axis=0)
         gradient_bias = np.mean(delta_matrix, axis=0).reshape(1, delta_matrix.shape[1])
@@ -596,12 +589,16 @@ class FlattenLayer(Layer):
     def _feedforward(self, batch):
         self.input_shape = batch.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
-        batch = batch.reshape(1, batch.shape[0] * batch.shape[1] * batch.shape[2])
-        self.nodes = [0, batch.shape[1]]
-        return batch
+        X_batch = batch.reshape(1, batch.shape[0] * batch.shape[1] * batch.shape[2])
+        bias = np.ones((X_batch.shape[0], 1)) * 0.01
+        self.a_matrix = np.hstack([bias, X_batch])
+        return self.a_matrix
 
     def _backpropagate(self, delta_next):
         return delta_next.reshape(self.input_shape)
+
+    def get_prev_a(self):
+        return self.a_matrix
 
     def _reset_weights(self, prev_nodes):
         pass

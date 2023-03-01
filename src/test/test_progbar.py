@@ -35,14 +35,14 @@ seed = 1337
 rho = 0.9
 rho2 = 0.999
 momentum = 0.9
-eta = 1e-3
+eta = 1e-2
 lam = 1e-5
 epochs = 200
 batches = X_train.shape[0]
 feature_maps = 1
 
-H = X_train.shape[1] // 2
-W = X_train.shape[1] // 2 // feature_maps
+H = 6
+W = 5 // feature_maps
 
 reshaped_X_train = np.zeros((batches, feature_maps, H, W))
 for b in range(batches):
@@ -50,37 +50,43 @@ for b in range(batches):
         for h in range(H):
             for w in range(W):
                 reshaped_X_train[b, fm, h, w] = X_train[h, w + fm * W]
-print(f"{reshaped_X_train.shape=}")
 
 batches = X_val.shape[0]
-H = X_val.shape[1] // 2
-W = X_val.shape[1] // 2 // feature_maps
+H = 6
+W = 5 // feature_maps
 reshaped_X_val = np.zeros((batches, feature_maps, H, W))
 for b in range(batches):
     for fm in range(feature_maps):
         for h in range(H):
             for w in range(W):
-                reshaped_X_val[b, fm, h, w] = X_val[h, w + fm * W]
+                reshaped_X_val[b, fm, h, w] = X_val[h, w + (fm * W)]
 print(f"{reshaped_X_val.shape=}")
 
 adam_scheduler = Adam(eta, rho, rho2)
 
-cnn = CNN(scheduler=adam_scheduler, seed=seed)
+test_flatten = FlattenLayer(seed=seed)
+test_flatten._feedforward(reshaped_X_train[1,:,:,:])
+a = test_flatten.get_prev_a()
+print(f"{a[:, 1:]=}")
+print(f"{X_train[0, :]=}")
+assert np.array_equal(a[:, 1:], X_train[0, :])
 
-cnn.add_FlattenLayer(seed=seed)
-
-cnn.add_FullyConnectedLayer(feature_maps * H * W, LRELU, seed=seed)
-
-cnn.add_FullyConnectedLayer(100, LRELU, seed=seed)
-
-cnn.add_OutputLayer(1, sigmoid, seed=seed)
-
-cnn.fit(
-    reshaped_X_train,
-    t_train,
-    lam=lam,
-    batches=batches,
-    epochs=epochs,
-    X_val=reshaped_X_val,
-    t_val=t_val,
-)
+# cnn = CNN(scheduler=adam_scheduler, seed=seed)
+#
+# cnn.add_FlattenLayer(seed=seed)
+#
+# cnn.add_FullyConnectedLayer(20, LRELU, seed=seed)
+#
+# cnn.add_FullyConnectedLayer(10, LRELU, seed=seed)
+#
+# cnn.add_OutputLayer(1, sigmoid, seed=seed)
+#
+# cnn.fit(
+#     reshaped_X_train,
+#     t_train,
+#     lam=lam,
+#     batches=batches,
+#     epochs=epochs,
+#     X_val=reshaped_X_val,
+#     t_val=t_val,
+# )

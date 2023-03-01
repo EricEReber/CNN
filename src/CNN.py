@@ -40,17 +40,6 @@ class CNN:
         if scheduler is None:
             scheduler = self.scheduler
 
-        # if not self.layers:
-        #     layer = FullyConnectedLayer(
-        #         [0, nodes], act_func, scheduler, seed, is_first_layer=False
-        #     )
-        #
-        # elif not isinstance(self.layers[-1], FullyConnectedLayer):
-        #     layer = FullyConnectedLayer(
-        #         [0, nodes], act_func, scheduler, seed, is_first_layer=False
-        #     )
-        # else:
-        # prev_nodes = self.layers[-1].nodes[1]
         layer = FullyConnectedLayer(nodes, act_func, scheduler, seed)
         self.layers.append(layer)
 
@@ -60,7 +49,6 @@ class CNN:
         if scheduler is None:
             scheduler = self.scheduler
 
-        # prev_nodes = self.layers[-1].nodes[1]
         output_layer = OutputLayer(nodes, output_func, self.cost_func, scheduler, seed)
         self.layers.append(output_layer)
         self.prediction = output_layer.get_prediction()
@@ -135,9 +123,7 @@ class CNN:
         for layer in self.layers:
 
             if isinstance(layer, FlattenLayer):
-                X_batch = layer._feedforward(X_batch)
-                bias = np.ones((X_batch.shape[0], 1)) * 0.01
-                a = np.hstack([bias, X_batch])
+                a = layer._feedforward(X_batch)
 
             elif isinstance(layer, FullyConnectedLayer):
                 assert a is not None
@@ -160,10 +146,7 @@ class CNN:
                 weights_next, delta_next = layer._backpropagate(
                     t, prev_layer.get_prev_a(), lam
                 )
-            elif (
-                isinstance(layer, FullyConnectedLayer)
-                and isinstance(prev_layer, FlattenLayer) is False
-            ):
+            elif isinstance(layer, FullyConnectedLayer):
                 weights_next, delta_next = layer._backpropagate(
                     weights_next, delta_next, prev_layer.get_prev_a(), lam
                 )
@@ -171,7 +154,7 @@ class CNN:
                 delta_next = layer._backpropagate(delta_next)
             else:
                 # TODO implement other types of layers
-                pass
+                raise NotImplementedError
 
     def _compute_scores(self, scores, epoch, X, t, X_val, t_val):
 
