@@ -468,19 +468,19 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             return np.stack(windows)
 
         if batch_type == "grad":
-            upsampled_height = (batch.shape[2] * self.v_stride) - (
-                - self.v_stride % 2
-            )
+            upsampled_height = (batch.shape[2] * self.v_stride) - self.v_stride % 2
+            
+            
             upsampled_width = (batch.shape[3] * self.h_stride) - self.h_stride % 2 
 
-            upsampled_batch = np.zeros(
-                (
-                    batch.shape[0],
-                    batch.shape[1],
-                    upsampled_height,
-                    upsampled_width,
-                )
-            )
+            # upsampled_batch = np.zeros(
+            #     (
+            #         batch.shape[0],
+            #         batch.shape[1],
+            #         upsampled_height,
+            #         upsampled_width,
+            #     )
+            # )
 
             ind = 1
             for i in range(batch.shape[2]):
@@ -490,12 +490,12 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                     batch = np.insert(batch, ind, 0, axis=3)
                 ind += self.v_stride
 
-            print(batch.shape)
+            batch = batch[:,:, : upsampled_height, :upsampled_width]
 
             batch = self._padding(batch, batch_type='grad')
 
             windows = []
-            for h in range(batch.shape[2] - self.kernel_height + self.kernel_height % 2):
+            for h in range(batch.shape[2] - self.kernel_height + self.kernel_width % 2):
                 for w in range(batch.shape[3] - self.kernel_width + self.kernel_width % 2):
                     # ...get an image patch of size [fil_size, fil_size]
 
@@ -526,20 +526,22 @@ class Convolution2DLayerOPT(Convolution2DLayer):
     def _feedforward(self, batch):
         kernel = self.kernel_tensor
 
-        new_height = int(
-            np.floor(
-                (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
-                / self.v_stride
-            )
-            + self.v_stride % 2
-        )
-        new_width = int(
-            np.floor(
-                (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
-                / self.h_stride
-            )
-            + self.h_stride % 2
-        )
+        # new_height = int(
+        #     np.floor(
+        #         (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
+        #         / self.v_stride
+        #     )
+        #     + self.v_stride & 2
+        # )
+        # new_width = int(
+        #     np.floor(
+        #         (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
+        #         / self.h_stride
+        #     )
+        #     + self.h_stide % 2
+        # )
+        new_height = int(np.ceil(batch.shape[2] / self.v_stride))
+        new_width = int(np.ceil(batch.shape[3] / self.h_stride))
 
         print(new_height, new_width)
         windows = self._extract_windows(batch)
@@ -567,20 +569,23 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         act_derivative = derivate(self.act_func)
         output_grad = act_derivative(output_grad)
 
-        new_height = int(
-            np.floor(
-                (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
-                / self.v_stride
-            )
-            + self.kernel_height % 2
-        )
-        new_width = int(
-            np.floor(
-                (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
-                / self.h_stride
-            )
-            + self.kernel_width % 2
-        )
+        # new_height = int(
+        #     np.floor(
+        #         (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
+        #         / self.v_stride
+        #     )
+        #     + 1
+        # )
+        # new_width = int(
+        #     np.floor(
+        #         (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
+        #         / self.h_stride
+        #     )
+        #     + 1
+        # )
+
+        new_height = int(np.ceil(batch.shape[2] / self.v_stride))
+        new_width = int(np.ceil(batch.shape[3] / self.h_stride))
         print(new_height, new_width)
         kernel = self.kernel_tensor
 
