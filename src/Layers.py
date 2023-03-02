@@ -469,19 +469,19 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
         if batch_type == "grad":
             
-            if self.v_stride < 2: 
-                v_stride = 2
-            else: 
-                v_stride = self.v_stride
-            if self.h_stride < 2: 
-                h_stride = 2 
-            else: 
-                h_stride = self.h_stride 
+            if self.v_stride < 2 or self.v_stride % 2 == 0: 
+                v_stride = 0
+            else:  
+                v_stride = int(np.floor(self.v_stride/2))
             
-            upsampled_height = (batch.shape[2] * self.v_stride) - v_stride % 2
+            if self.h_stride < 2 or self.h_stride % 2 == 0: 
+                h_stride = 0
+            else:  
+                h_stride = int(np.floor(self.h_stride/2))
+
+            upsampled_height = (batch.shape[2] * self.v_stride) - v_stride
             
-            
-            upsampled_width = (batch.shape[3] * self.h_stride) - h_stride % 2
+            upsampled_width = (batch.shape[3] * self.h_stride) - h_stride
 
             ind = 1
             for i in range(batch.shape[2]):
@@ -570,8 +570,9 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
         # Update the weights in the kernel
         self.kernel_tensor -= kernel_grad
-
+        
         # Output the gradient to propagate backwards
+        print('Success')
         return input_grad
 
 
