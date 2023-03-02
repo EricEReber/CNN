@@ -623,8 +623,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         )
         input_grad = input_grad.transpose(0, 3, 1, 2)
 
-        import sys
-        sys.exit()
         # Update the weights in the kernel
         self.kernel_tensor -= kernel_grad
 
