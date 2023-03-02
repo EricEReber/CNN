@@ -77,8 +77,8 @@ def backward_test(X):
 
 
 def backward_opt_test(X):
-    kernel_size = 5
-    stride = 1
+    kernel_size = 4
+    stride = 3
 
     layer = Convolution2DLayerOPT(
         input_channels=3,
@@ -97,7 +97,7 @@ def backward_opt_test(X):
         + kernel_size % 2
     )
     new_width = new_height
-    print(new_height)
+    print("new_height", new_height)
     rand_grad = np.random.randint(0, 10, (3, 64, new_height, new_width))
     input_grad = layer._backpropagate(X, rand_grad)
 

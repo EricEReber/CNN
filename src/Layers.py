@@ -264,10 +264,12 @@ class Convolution2DLayer(Layer):
         X_pad = self._padding(X)
 
         new_height = int(
-            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride) + (self.kernel_height % 2)
+            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride)
+            + (self.kernel_height % 2)
         )
         new_width = int(
-            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride) + (self.kernel_width % 2)
+            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride)
+            + (self.kernel_width % 2)
         )
 
         output = np.ndarray(
@@ -366,10 +368,10 @@ class Convolution2DLayer(Layer):
 
         return delta
 
-    def _padding(self, batch):
+    def _padding(self, batch, batch_type="image"):
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
-        if self.pad == "same":
+        if self.pad == "same" and batch_type == "image":
             new_height = batch.shape[2] + (self.kernel_height // 2) * 2
             new_width = batch.shape[3] + (self.kernel_width // 2) * 2
             hk_height = self.kernel_height // 2
@@ -387,6 +389,22 @@ class Convolution2DLayer(Layer):
                     hk_width : new_width - hk_width,
                 ] = batch[img, :, :, :]
                 new_tensor[img, :, :, :] = padded_img[:, :, :]
+
+            return new_tensor
+
+        elif self.pad == "same" and batch_type == "grad":
+            new_height = batch.shape[2] + (self.kernel_height // 2) * 2
+            new_width = batch.shape[3] + (self.kernel_width // 2) * 2
+            hk_height = self.kernel_height // 2
+            hk_width = self.kernel_width // 2
+
+            new_tensor = np.zeros(
+                (batch.shape[0], batch.shape[1], new_height, new_width)
+            )
+
+            new_tensor[:, :, : batch.shape[2], : batch.shape[3]] = batch[
+                :, :, :, :
+            ]
 
             return new_tensor
 
@@ -423,13 +441,21 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         # pad the images
         # TODO: Change padding so that it takes the height and width of kernel as arguments
         batch_pad = self._padding(batch)
+        img_height, img_width = batch_pad.shape[2:]
 
         windows = []
-        img_height, img_width = batch_pad.shape[2:]
         if batch_type == "image":
             # For each location in the image...
-            for h in range( img_height - self.kernel_height + self.kernel_height % 2):
-                for w in range( img_width - self.kernel_width + self.kernel_width % 2):
+            for h in range(
+                0,
+                img_height - self.kernel_height + self.kernel_height % 2,
+                self.v_stride,
+            ):
+                for w in range(
+                    0,
+                    img_width - self.kernel_width + self.kernel_width % 2,
+                    self.h_stride,
+                ):
                     # ...get an image patch of size [fil_size, fil_size]
 
                     window = batch_pad[
@@ -442,43 +468,62 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             return np.stack(windows)
 
         if batch_type == "grad":
-            for h in range(img_height - self.kernel_height + self.kernel_height % 2):
-                for w in range(img_width - self.kernel_width + self.kernel_width % 2):
+            upsampled_height = (batch.shape[2] * self.v_stride) - (
+                - self.v_stride % 2
+            )
+            upsampled_width = (batch.shape[3] * self.h_stride) - self.h_stride % 2 
+
+            upsampled_batch = np.zeros(
+                (
+                    batch.shape[0],
+                    batch.shape[1],
+                    upsampled_height,
+                    upsampled_width,
+                )
+            )
+
+            ind = 1
+            for i in range(batch.shape[2]):
+                for j in range(self.h_stride - 1):
+                    batch = np.insert(batch, ind, 0, axis=2)
+                for k in range(self.v_stride - 1):
+                    batch = np.insert(batch, ind, 0, axis=3)
+                ind += self.v_stride
+
+            print(batch.shape)
+
+            batch = self._padding(batch, batch_type='grad')
+
+            windows = []
+            for h in range(batch.shape[2] - self.kernel_height + self.kernel_height % 2):
+                for w in range(batch.shape[3] - self.kernel_width + self.kernel_width % 2):
                     # ...get an image patch of size [fil_size, fil_size]
 
-                    if self.v_stride == 1 and self.h_stride == 1:
-                        window = batch_pad[
-                            :, :, h : h + self.kernel_height, w : w + self.kernel_width
-                        ]
-                        windows.append(window)
-                    else:
-                        # TODO: This functionality needs improvement for asymmetric kernels
-                        window = batch_pad[
-                            :, :, h : h + self.v_stride, w : w + self.h_stride
-                        ]
-                        # rest = self.kernel_height % self.v_stride
-                        # window = values[
-                            # :,
-                            # :,
-                            # : values.shape[2] - self.v_stride + rest,
-                            # : values.shape[3] - self.v_stride + rest,
-                        # ]
+                    window = batch[
+                        :, :, h : h + self.kernel_height, w : w + self.kernel_width
+                    ]
+                    windows.append(window)
+                    # else:
+                    #     # TODO: This functionality needs improvement for asymmetric kernels
+                    #     window = batch_pad[
+                    #         :, :, h : h + self.v_stride, w : w + self.h_stride
+                    #     ]
+                    #
+                    #     ind = 1
+                    #     for i in range(self.kernel_height // self.v_stride):
+                    #         for j in range(self.h_stride - 1):
+                    #             window = np.insert(window, ind, 0, axis=2)
+                    #         for i in range(self.v_stride - 1):
+                    #             window = np.insert(window, ind, 0, axis=3)
+                    #         ind += self.v_stride
+                    #
+                    #     # window = window[:,:,:self.kernel_height, :self.kernel_width]
+                    # windows.append(window)
+            print(f"{(np.stack(windows)).shape=}")
 
-                        ind = 1
-                        for i in range(self.kernel_height // self.v_stride):
-                            for j in range(self.h_stride - 1):
-                                window = np.insert(window, ind, 0, axis=2)
-                            for i in range(self.v_stride - 1):
-                                window = np.insert(window, ind, 0, axis=3)
-                            ind += self.v_stride
-
-                        # window = window[:,:,:self.kernel_height, :self.kernel_width]
-                        windows.append(window)
-
-            return np.stack(windows)
+            return np.stack(windows), upsampled_height, upsampled_width
 
     def _feedforward(self, batch):
-
         kernel = self.kernel_tensor
 
         new_height = int(
@@ -486,14 +531,14 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                 (batch.shape[2] + ((self.kernel_height // 2) * 2) - self.kernel_height)
                 / self.v_stride
             )
-            + 1
+            + self.v_stride % 2
         )
         new_width = int(
             np.floor(
                 (batch.shape[3] + ((self.kernel_height // 2) * 2) - self.kernel_width)
                 / self.h_stride
             )
-            + 1
+            + self.h_stride % 2
         )
 
         print(new_height, new_width)
@@ -547,10 +592,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             batch.shape[0] * new_height * new_width, -1
         )
 
-        print(windows.shape)
-        print("here")
-        print(output_grad_tr.shape)
-
         kernel_grad = (
             (windows.T @ output_grad_tr)
             .reshape(kernel.shape[0], kernel.shape[2], kernel.shape[3], kernel.shape[1])
@@ -558,29 +599,27 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         )
 
         # Computing the input gradient
-        windows_out = self._extract_windows(output_grad)
+        windows_out, upsampled_height, upsampled_width = self._extract_windows(output_grad, "grad")
 
-        print(f'{windows_out.shape=}')
+        print("looking at values")
+        print(f"{windows_out.shape=}")
 
         windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
-                batch.shape[0] * batch.shape[2] * batch.shape[3],
+            batch.shape[0] * upsampled_height, upsampled_width,
             -1,
         )
-        print(f'{windows_out.shape=}')
+        print(f"{windows_out.shape=}")
 
         kernel_r = kernel.reshape(self.input_channels, -1)
 
-        input_grad = (windows_out @ kernel_r.T)
-        
-        print(input_grad.shape)
-        import sys 
-        sys.exit()
-
-        # .reshape(
-        #     batch.shape[0], batch.shape[2], batch.shape[3], kernel.shape[0]
-        # )
+        print(f"{kernel_r.shape=}")
+        input_grad = (windows_out @ kernel_r.T).reshape(
+            batch.shape[0], upsampled_height, upsampled_width, kernel.shape[0]
+        )
         input_grad = input_grad.transpose(0, 3, 1, 2)
 
+        import sys
+        sys.exit()
         # Update the weights in the kernel
         self.kernel_tensor -= kernel_grad
 
