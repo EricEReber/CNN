@@ -77,8 +77,8 @@ def backward_test(X):
 
 
 def backward_opt_test(X):
-    kernel_size = 4
-    stride = 4
+    kernel_size = 5
+    stride = 2
 
     layer = Convolution2DLayerOPT(
         input_channels=3,
