@@ -28,33 +28,58 @@ class CNN:
         self.layers = list()
         self.cost_func = cost_func
         self.scheduler = scheduler
-        self.seed = seed
         self.schedulers_weight = list()
         self.schedulers_bias = list()
+        self.seed = seed
         self.prediction = None
-        self.batches = 1
 
         self._set_classification()
 
-    def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None, seed=None):
+    def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None):
         if scheduler is None:
             scheduler = self.scheduler
 
-        layer = FullyConnectedLayer(nodes, act_func, scheduler, seed)
+        layer = FullyConnectedLayer(nodes, act_func, scheduler, self.seed)
         self.layers.append(layer)
 
-    def add_OutputLayer(self, nodes, output_func, scheduler=None, seed=None):
+    def add_OutputLayer(self, nodes, output_func, scheduler=None):
         assert self.layers, "OutputLayer should not be first added layer"
 
         if scheduler is None:
             scheduler = self.scheduler
 
-        output_layer = OutputLayer(nodes, output_func, self.cost_func, scheduler, seed)
+        output_layer = OutputLayer(
+            nodes, output_func, self.cost_func, scheduler, self.seed
+        )
         self.layers.append(output_layer)
         self.prediction = output_layer.get_prediction()
 
     def add_FlattenLayer(self, seed=None):
         self.layers.append(FlattenLayer(seed))
+
+    def add_Convolution2DLayer(
+        self,
+        input_channels=1,
+        feature_maps=3,
+        kernel_height=32,
+        kernel_width=32,
+        v_stride=1,
+        h_stride=1,
+        pad="same",
+        act_func="LRELU",
+    ):
+        conv_layer = Convolution2DLayer(
+            input_channels,
+            feature_maps,
+            kernel_height,
+            kernel_width,
+            v_stride,
+            h_stride,
+            pad,
+            act_func,
+            self.seed,
+        )
+        self.layers.append(conv_layer)
 
     def fit(
         self,
@@ -78,12 +103,24 @@ class CNN:
 
         # creating arrays for score metrics
         scores = self._initialize_scores(epochs)
+        batch_size = X.shape[0] // batches
 
         try:
 
             for epoch in range(epochs):
                 for batch in range(batches):
-                    self._feedforward(X)
+                    # allows for minibatch gradient descent
+                    if batch == batches - 1:
+                        # If the for loop has reached the last batch, take all thats left
+                        X_batch = X[batch * batch_size :, :, :, :]
+                        t_batch = t[batch * batch_size :, :]
+                    else:
+                        X_batch = X[
+                            batch * batch_size : (batch + 1) * batch_size, :, :, :
+                        ]
+                        t_batch = t[batch * batch_size : (batch + 1) * batch_size]
+
+                    self._feedforward(X_batch)
                     self._backpropagate(t, lam)
 
                 # reset schedulers for each epoch (some schedulers pass in this call)
@@ -120,7 +157,13 @@ class CNN:
         a = None
         for layer in self.layers:
 
-            if isinstance(layer, FlattenLayer):
+            if isinstance(layer, Convolution2DLayer):
+                a = layer._feedforward(X_batch)
+
+            if isinstance(layer, Convolution2DLayerOPT):
+                a = layer._feedforward(X_batch)
+
+            elif isinstance(layer, FlattenLayer):
                 a = layer._feedforward(X_batch)
 
             elif isinstance(layer, FullyConnectedLayer):
@@ -159,20 +202,20 @@ class CNN:
         pred_train = self.predict(X)
         cost_function_train = self.cost_func(t)
         train_error = cost_function_train(pred_train)
-        scores["train_errors"][epoch] = train_error
+        scores["train_error"][epoch] = train_error
 
         if X_val is not None and t_val is not None:
             cost_function_val = self.cost_func(t_val)
             pred_val = self.predict(X_val)
             val_error = cost_function_val(pred_val)
-            scores["val_errors"][epoch] = val_error
+            scores["val_error"][epoch] = val_error
 
         if self.prediction != "Regression":
             train_acc = self._accuracy(pred_train, t)
-            scores["train_accs"][epoch] = train_acc
+            scores["train_acc"][epoch] = train_acc
             if X_val is not None and t_val is not None:
                 val_acc = self._accuracy(pred_val, t_val)
-                scores["val_accs"][epoch] = val_acc
+                scores["val_acc"][epoch] = val_acc
 
         return scores
 
@@ -189,10 +232,10 @@ class CNN:
         val_accs = np.empty(epochs)
         val_accs.fill(np.nan)
 
-        scores["train_errors"] = train_errors
-        scores["val_errors"] = val_errors
-        scores["train_accs"] = train_accs
-        scores["val_accs"] = val_accs
+        scores["train_error"] = train_errors
+        scores["val_error"] = val_errors
+        scores["train_acc"] = train_accs
+        scores["val_acc"] = val_accs
 
         return scores
 

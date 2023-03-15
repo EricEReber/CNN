@@ -37,16 +37,17 @@ eta = 1e-3
 lam = 1e-5
 epochs = 200
 
-batches = 12
+images = 12
+batches = 6
 feature_maps = 11
 print(f"{X_train.shape=}")
 
 H = X_train.shape[0]
 W = X_train.shape[1] // feature_maps
 
-reshaped_X_train = np.zeros((batches, feature_maps, H, W))
+reshaped_X_train = np.zeros((images, feature_maps, H, W))
 index_counter = 0
-for b in range(batches):
+for b in range(images):
     for fm in range(feature_maps):
         for h in range(H):
             for w in range(W):
@@ -78,16 +79,17 @@ cnn = CNN(scheduler=adam_scheduler, seed=seed)
 # test way to connect layers
 print(f"{seed=}")
 #
-cnn.add_FlattenLayer(seed=seed)
+cnn.add_Convolution2DLayer()
+cnn.add_FlattenLayer()
 
-cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU, seed=seed)
+cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU)
 
-cnn.add_FullyConnectedLayer(100, LRELU, seed=seed)
+cnn.add_FullyConnectedLayer(100, LRELU)
 
-cnn.add_OutputLayer(1, sigmoid, seed=seed)
+cnn.add_OutputLayer(1, sigmoid)
 
-t_train = np.array([1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1])
+t_train = np.array([[1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1]])
 cnn.fit(
-    reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs,
+    reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=reshaped_X_train, t_val=t_train,
 )
 
