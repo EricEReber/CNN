@@ -66,7 +66,7 @@ class CNN:
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
     ):
-        # for consecutive calls of fit()
+        # initialize weights
         prev_nodes = X.shape[1] * X.shape[2] * X.shape[3]
         for layer in self.layers:
             if isinstance(layer, FullyConnectedLayer):
@@ -80,12 +80,10 @@ class CNN:
         scores = self._initialize_scores(epochs)
 
         try:
-            batches = X.shape[0]
 
             for epoch in range(epochs):
                 for batch in range(batches):
-                    X_batch = X[batch, :, :, :]
-                    self._feedforward(X_batch)
+                    self._feedforward(X)
                     self._backpropagate(t, lam)
 
                 # reset schedulers for each epoch (some schedulers pass in this call)
@@ -200,9 +198,7 @@ class CNN:
 
     def predict(self, X: np.ndarray, *, threshold=0.5):
 
-        predict = np.zeros((X.shape[0], 1))
-        for X_batch in range(X.shape[0]):
-            predict[X_batch, :] = self._feedforward(X[X_batch, :, :, :])
+        predict = self._feedforward(X)
 
         if self.prediction == "Binary":
             return np.where(predict > threshold, 1, 0)
