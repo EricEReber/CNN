@@ -31,18 +31,27 @@ class CNN:
         self.schedulers_weight = list()
         self.schedulers_bias = list()
         self.seed = seed
-        self.prediction = None
+        self.pred_format = None
 
-        self._set_classification()
+    def add_FullyConnectedLayer(self, nodes: int, act_func="LRELU", scheduler=None) -> None:
+        """
+        Description:
+        ------------
+            Add a FullyConnectedLayer to the CNN
 
-    def add_FullyConnectedLayer(self, nodes, act_func, scheduler=None):
+        Parameters:
+        ------------
+            I  nodes (int) number of nodes in FullyConnectedLayer 
+            II  act_func (activationFunctions) activation function of FullyConnectedLayer,
+                such as "sigmoid", "RELU", "LRELU", "softmax" or "identity"
+        """
         if scheduler is None:
             scheduler = self.scheduler
 
         layer = FullyConnectedLayer(nodes, act_func, scheduler, self.seed)
         self.layers.append(layer)
 
-    def add_OutputLayer(self, nodes, output_func, scheduler=None):
+    def add_OutputLayer(self, nodes, output_func=CostLogReg, scheduler=None) -> None:
         assert self.layers, "OutputLayer should not be first added layer"
 
         if scheduler is None:
@@ -52,10 +61,10 @@ class CNN:
             nodes, output_func, self.cost_func, scheduler, self.seed
         )
         self.layers.append(output_layer)
-        self.prediction = output_layer.get_prediction()
+        self.pred_format = output_layer.get_pred_format()
 
-    def add_FlattenLayer(self, seed=None):
-        self.layers.append(FlattenLayer(seed))
+    def add_FlattenLayer(self) -> None:
+        self.layers.append(FlattenLayer(self.seed))
 
     def add_Convolution2DLayer(
         self,
@@ -67,7 +76,7 @@ class CNN:
         h_stride=1,
         pad="same",
         act_func="LRELU",
-    ):
+    ) -> None:
         conv_layer = Convolution2DLayer(
             input_channels,
             feature_maps,
@@ -90,28 +99,26 @@ class CNN:
         batches: int = 1,
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
-    ):
-        # initialize weights
-        prev_nodes = X.shape[1] * X.shape[2] * X.shape[3]
-        for layer in self.layers:
-            if isinstance(layer, FullyConnectedLayer):
-                prev_nodes = layer._reset_weights(prev_nodes)
+    ) -> dict:
 
         # setup
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        # creating arrays for score metrics
+        # initialize weights
+        self._initialize_weights(X)
+
+        # create arrays for score metrics
         scores = self._initialize_scores(epochs)
+
         batch_size = X.shape[0] // batches
 
         try:
-
             for epoch in range(epochs):
                 for batch in range(batches):
-                    # allows for minibatch gradient descent
+                    # minibatch gradient descent
+                    # If the for loop has reached the last batch, take all thats left
                     if batch == batches - 1:
-                        # If the for loop has reached the last batch, take all thats left
                         X_batch = X[batch * batch_size :, :, :, :]
                         t_batch = t[batch * batch_size :, :]
                     else:
@@ -121,7 +128,7 @@ class CNN:
                         t_batch = t[batch * batch_size : (batch + 1) * batch_size]
 
                     self._feedforward(X_batch)
-                    self._backpropagate(t, lam)
+                    self._backpropagate(X_batch, t_batch, lam)
 
                 # reset schedulers for each epoch (some schedulers pass in this call)
                 for layer in self.layers:
@@ -137,8 +144,8 @@ class CNN:
                     epochs,
                     scores,
                 )
+        # allows for stopping training at any point and seeing the result
         except KeyboardInterrupt:
-            # allows for stopping training at any point and seeing the result
             pass
 
         # visualization of training progression (similiar to tensorflow progression bar)
@@ -153,51 +160,57 @@ class CNN:
 
         return scores
 
-    def _feedforward(self, X_batch):
-        a = None
+    def _feedforward(self, X_batch) -> np.ndarray:
+        a = X_batch
         for layer in self.layers:
-
-            if isinstance(layer, Convolution2DLayer):
-                a = layer._feedforward(X_batch)
-
-            if isinstance(layer, Convolution2DLayerOPT):
-                a = layer._feedforward(X_batch)
-
-            elif isinstance(layer, FlattenLayer):
-                a = layer._feedforward(X_batch)
-
-            elif isinstance(layer, FullyConnectedLayer):
-                assert a is not None
-
-                a = layer._feedforward(a)
-
-            else:
-                # TODO implement other types of layers
-                raise NotImplementedError
+            a = layer._feedforward(a)
 
         return a
 
-    def _backpropagate(self, t, lam):
+    def _backpropagate(self, X_batch, t_batch, lam) -> None:
+        assert len(self.layers) >= 2
         reversed_layers = self.layers[::-1]
 
         for i in range(len(reversed_layers) - 1):
             layer = reversed_layers[i]
             prev_layer = reversed_layers[i + 1]
+
             if isinstance(layer, OutputLayer):
-                weights_next, delta_next = layer._backpropagate(
-                    t, prev_layer.get_prev_a(), lam
-                )
+                prev_a = prev_layer.get_prev_a()
+                weights_next, delta_next = layer._backpropagate(t_batch, prev_a, lam)
+
             elif isinstance(layer, FullyConnectedLayer):
+                assert delta_next
+                assert weights_next
+                prev_a = prev_layer.get_prev_a()
                 weights_next, delta_next = layer._backpropagate(
-                    weights_next, delta_next, prev_layer.get_prev_a(), lam
+                    weights_next, delta_next, prev_a, lam
                 )
+
             elif isinstance(layer, FlattenLayer):
+                assert delta_next
                 delta_next = layer._backpropagate(delta_next)
+
+            elif isinstance(layer, Convolution2DLayer):
+                assert delta_next
+                delta_next = layer._backpropagate(X_batch, delta_next)
+
+            elif isinstance(layer, Pooling2DLayer):
+                assert delta_next
+                delta_next = layer._backpropagate(X_batch, delta_next)
+
             else:
-                # TODO implement other types of layers
                 raise NotImplementedError
 
-    def _compute_scores(self, scores, epoch, X, t, X_val, t_val):
+    def _compute_scores(
+        self,
+        scores: dict,
+        epoch: int,
+        X: np.ndarray,
+        t: np.ndarray,
+        X_val: np.ndarray,
+        t_val: np.ndarray,
+    ) -> dict:
 
         pred_train = self.predict(X)
         cost_function_train = self.cost_func(t)
@@ -210,7 +223,7 @@ class CNN:
             val_error = cost_function_val(pred_val)
             scores["val_error"][epoch] = val_error
 
-        if self.prediction != "Regression":
+        if self.pred_format != "Regression":
             train_acc = self._accuracy(pred_train, t)
             scores["train_acc"][epoch] = train_acc
             if X_val is not None and t_val is not None:
@@ -219,7 +232,7 @@ class CNN:
 
         return scores
 
-    def _initialize_scores(self, epochs):
+    def _initialize_scores(self, epochs) -> dict:
         scores = dict()
 
         train_errors = np.empty(epochs)
@@ -239,16 +252,42 @@ class CNN:
 
         return scores
 
-    def predict(self, X: np.ndarray, *, threshold=0.5):
+    def _initialize_weights(self, X: np.ndarray) -> None:
+        """
+        Description:
+        ------------
+            Initializes weights for all layers in CNN
 
-        predict = self._feedforward(X)
+        Parameters:
+        ------------
+            I   X (np.ndarray) input [img, feature_maps, height, width]
+        """
+        prev_nodes = X.shape[1] * X.shape[2] * X.shape[3]
+        for layer in self.layers:
+            if isinstance(layer, FullyConnectedLayer):
+                prev_nodes = layer._reset_weights(prev_nodes)
+            else:
+                layer._reset_weights()
 
-        if self.prediction == "Binary":
-            return np.where(predict > threshold, 1, 0)
+    def predict(self, X: np.ndarray, *, threshold=0.5) -> np.ndarray:
+        """
+        Description:
+        ------------
+            Predicts output of input X
+
+        Parameters:
+        ------------
+            I   X (np.ndarray) input [img, feature_maps, height, width]
+        """
+
+        prediction = self._feedforward(X)
+
+        if self.pred_format == "Binary":
+            return np.where(prediction > threshold, 1, 0)
         else:
-            return predict
+            return prediction
 
-    def _accuracy(self, prediction: np.ndarray, target: np.ndarray):
+    def _accuracy(self, prediction: np.ndarray, target: np.ndarray) -> float:
         """
         Description:
         ------------
@@ -256,9 +295,9 @@ class CNN:
 
         Parameters:
         ------------
-            I   prediction (np.ndarray): vector of predicitons output network
+            I   prediction (np.ndarray): output of predict() fuction
             (1s and 0s in case of classification, and real numbers in case of regression)
-            II  target (np.ndarray): vector of true values (Ideally what the network should predict)
+            II  target (np.ndarray): vector of true values (What the network should predict)
 
         Returns:
         ------------
@@ -267,15 +306,7 @@ class CNN:
         assert prediction.size == target.size
         return np.average((target == prediction))
 
-    def _set_classification(self):
-        self.classification = False
-        if (
-            self.cost_func.__name__ == "CostLogReg"
-            or self.cost_func.__name__ == "CostCrossEntropy"
-        ):
-            self.classification = True
-
-    def _progress_bar(self, epoch, epochs, scores):
+    def _progress_bar(self, epoch: int, epochs: int, scores: dict) -> int:
         """
         Description:
         ------------
@@ -298,7 +329,7 @@ class CNN:
         print(line, end="\r")
         return len(line)
 
-    def _fmt(self, value, N=4):
+    def _fmt(self, value: int, N=4) -> str:
         """
         Description:
         ------------

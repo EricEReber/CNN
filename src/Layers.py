@@ -10,7 +10,6 @@ from src.Schedulers import *
 Interface contatining all the layers that will be available for construction of 
 a models architecture.
 """
-# TODO: Start implementation of FullyConnected, Output and Convolution Layer
 
 
 class Layer:
@@ -126,7 +125,7 @@ class OutputLayer(FullyConnectedLayer):
         self.z_matrix = None
 
         # self._reset_weights()
-        self.set_prediction()  # Decides what type of prediction the output layer performs
+        self.set_pred_format()  # Decides what type of pred_format the output layer performs
 
     def _feedforward(self, X: np.ndarray):
         if len(X.shape) == 1:
@@ -142,7 +141,7 @@ class OutputLayer(FullyConnectedLayer):
         # Again, remember that in the OutputLayer the activation function is the output function
         activation_derivative = derivate(self.act_func)
 
-        if self.prediction == "Multi-class":
+        if self.pred_format == "Multi-class":
             delta_matrix = self.a_matrix - target
         else:
             cost_func_derivative = grad(self.cost_func(target))
@@ -178,21 +177,13 @@ class OutputLayer(FullyConnectedLayer):
 
         return self.weights, delta_matrix
 
-    def predict(self, X: np.ndarray, *, threshold=0.5):
-        predict = self._feedforward(X)
-
-        if self.prediction == "Binary":
-            return np.where(predict > threshold, 1, 0)
-        else:
-            return predict
-
-    def set_prediction(self):
+    def set_pred_format(self):
         if self.act_func.__name__ is None or self.act_func.__name__ == "identity":
-            self.prediction = "Regression"
+            self.pred_format = "Regression"
         elif self.act_func.__name__ == "sigmoid" or self.act_func.__name__ == "tanh":
-            self.prediction = "Binary"
+            self.pred_format = "Binary"
         else:
-            self.prediction = "Mulit-class"
+            self.pred_format = "Mulit-class"
 
     def _reset_weights(self, prev_nodes):
         if self.seed is not None:
@@ -207,8 +198,8 @@ class OutputLayer(FullyConnectedLayer):
         self.scheduler_weight.reset()
         self.scheduler_bias.reset()
 
-    def get_prediction(self):
-        return self.prediction
+    def get_pred_format(self):
+        return self.pred_format
 
 
 class Convolution2DLayer(Layer):
@@ -577,7 +568,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         print("Success")
         return input_grad
 
-
 class Pooling2DLayer(Layer):
     def __init__(
         self, kernel_height, kernel_width, v_stride, h_stride, pooling="max", seed=2023
@@ -624,7 +614,7 @@ class Pooling2DLayer(Layer):
 
         return output
 
-    def _backpropagate(self, delta_next, X=[]):
+    def _backpropagate(self, X, delta_next):
         delta_input = np.zeros((self.input_shape))
 
         for img in range(delta_next.shape[0]):
@@ -664,6 +654,9 @@ class Pooling2DLayer(Layer):
                                 / self.kernel_width
                             )
         return delta_input
+
+    def _reset_weights(self):
+        pass
 
 
 class FlattenLayer(Layer):
