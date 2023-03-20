@@ -295,7 +295,7 @@ class Convolution2DLayer(Layer):
         # the convolutional layer, as convolution in terms of Machine Learning is a procedure known as cross-correlation
         # in image processing and signal processing
 
-        return self.act_func(output)
+        return self.act_func(output / (self.kernel_height))
 
     def _backpropagate(self, X, delta_next):
         # TODO: Fix backprog for stride larger than one
@@ -528,7 +528,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             .transpose(0, 3, 1, 2)
         )
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output / batch.shape[1]) 
+        return self.act_func(output / (self.kernel_height*batch.shape[1])) 
 
     def _backpropagate(self, batch, output_grad):
         act_derivative = derivate(self.act_func)

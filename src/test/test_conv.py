@@ -35,7 +35,7 @@ def forward_test(X):
 
     # assert conv_rest.shape == (X.shape[0], 64, X.shape[2], X.shape[3])
 
-    plt.imshow(conv_rest[0, 11, :, :], vmin=0, vmax=255)
+    plt.imshow(conv_rest[0, 1, :, :], vmin=0, vmax=255)
     plt.show()
 
 
@@ -54,7 +54,7 @@ def forward_opt_test(X):
 
     # for i in range(0, 64, 4):
     conv_rest = layer._feedforward(X)
-    plt.imshow(conv_rest[0, 11, :, :], vmin=0, vmax=255)
+    plt.imshow(conv_rest[0, 1, :, :], vmin=0, vmax=255)
     plt.show()
 
 
