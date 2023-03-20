@@ -253,14 +253,8 @@ class Convolution2DLayer(Layer):
 
         X_pad = self._padding(X)
 
-        new_height = int(
-            np.floor((X_pad.shape[2] - self.kernel_height) / self.v_stride)
-            + (self.kernel_height % 2)
-        )
-        new_width = int(
-            np.floor((X_pad.shape[3] - self.kernel_width) / self.h_stride)
-            + (self.kernel_width % 2)
-        )
+        new_height = int(np.ceil(X.shape[2] / self.v_stride))
+        new_width = int(np.ceil(X.shape[3] / self.h_stride))
 
         output = np.ndarray(
             (
@@ -272,23 +266,25 @@ class Convolution2DLayer(Layer):
         )
         # Will need this parameter for backpropagation
         self.output_shape = output.shape
-
+        # new_x, new_y = 0, 0
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
-                    for x in range(new_height):
-                        for y in range(new_width):
-                            output[img, fmap, x, y] = np.sum(
+                    new_x = 0
+                    for x in range(0, X.shape[2], self.v_stride):
+                        new_y = 0
+                        for y in range(0, X.shape[3], self.h_stride):
+                            output[img, fmap, new_x, new_y] = np.sum(
                                 X_pad[
                                     img,
                                     chin,
-                                    (x * self.v_stride) : (x * self.v_stride)
-                                    + self.kernel_height,
-                                    (y * self.h_stride) : (y * self.h_stride)
-                                    + self.kernel_width,
+                                    x : x + self.kernel_height,
+                                    y : y + self.kernel_width,
                                 ]
                                 * self.kernel_tensor[chin, fmap, :, :]
                             )
+                            new_y += 1
+                        new_x += 1
 
         """
         for k_x in range(self.kernel_size): 
@@ -304,7 +300,6 @@ class Convolution2DLayer(Layer):
     def _backpropagate(self, X, delta_next):
         # TODO: Fix backprog for stride larger than one
         delta = np.zeros((X.shape))
-        print(delta.shape)
         kernel_grad = np.zeros((self.kernel_tensor.shape))
 
         X_pad = self._padding(X)
@@ -314,9 +309,19 @@ class Convolution2DLayer(Layer):
         act_derivative = derivate(self.act_func)
         delta_next = act_derivative(delta_next)
 
+        if self.v_stride > 1:
+            ind = 1
+            for i in range(delta_next.shape[2]):
+                for j in range(self.h_stride - 1):
+                    delta_next = np.insert(delta_next, ind, 0, axis=2)
+                for k in range(self.v_stride - 1):
+                    delta_next = np.insert(delta_next, ind, 0, axis=3)
+                ind += self.v_stride
+
+            delta_next = delta_next[:, :, : X.shape[2], : X.shape[3]]
+
         # The gradient received from the next layer also needs to be padded
         delta_next = self._padding(delta_next)
-        print(delta_next.shape)
 
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
@@ -456,7 +461,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             return np.stack(windows)
 
         if batch_type == "grad":
-
             if self.v_stride < 2 or self.v_stride % 2 == 0:
                 v_stride = 0
             else:
@@ -513,14 +517,18 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             kernel.shape[0] * kernel.shape[2] * kernel.shape[3],
             -1,
         )
-        output = (windows @ kernel).reshape(
-            batch.shape[0],
-            new_height,
-            new_width,
-            -1,
+        output = (
+            (windows @ kernel)
+            .reshape(
+                batch.shape[0],
+                new_height,
+                new_width,
+                -1,
+            )
+            .transpose(0, 3, 1, 2)
         )
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output.transpose(0, 3, 1, 2) / 9)
+        return self.act_func(output / batch.shape[1]) 
 
     def _backpropagate(self, batch, output_grad):
         act_derivative = derivate(self.act_func)
@@ -567,6 +575,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         # Output the gradient to propagate backwards
         print("Success")
         return input_grad
+
 
 class Pooling2DLayer(Layer):
     def __init__(

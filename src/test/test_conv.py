@@ -22,8 +22,8 @@ def forward_test(X):
     layer = Convolution2DLayer(
         input_channels=3,
         feature_maps=64,
-        kernel_height=2,
-        kernel_width=2,
+        kernel_height=4,
+        kernel_width=4,
         v_stride=2,
         h_stride=2,
         pad="same",
@@ -35,7 +35,7 @@ def forward_test(X):
 
     # assert conv_rest.shape == (X.shape[0], 64, X.shape[2], X.shape[3])
 
-    plt.imshow(conv_rest[0, 0, :, :], vmin=0, vmax=255)
+    plt.imshow(conv_rest[0, 11, :, :], vmin=0, vmax=255)
     plt.show()
 
 
@@ -52,9 +52,9 @@ def forward_opt_test(X):
         seed=2023,
     )
 
+    # for i in range(0, 64, 4):
     conv_rest = layer._feedforward(X)
-    print(conv_rest.shape)
-    plt.imshow(conv_rest[0, 0, :, :], vmin=0, vmax=255)
+    plt.imshow(conv_rest[0, 11, :, :], vmin=0, vmax=255)
     plt.show()
 
 
@@ -151,10 +151,10 @@ def avr_pooling_test(X):
         avr_img.shape[0], avr_img.shape[1], avr_img.shape[2], avr_img.shape[3]
     )
 
-    print(delta_grad[0, 0, 0:2, 0:2])
-    rv_avr_img = pooling_layer._backpropagate(delta_grad)
-    print(X[0, 0, 0:4, 0:4])
-    print(rv_avr_img[0, 0, 0:4, 0:4])
+    # print(delta_grad[0, 0, 0:2, 0:2])
+    # rv_avr_img = pooling_layer._backpropagate(delta_grad)
+    # print(X[0, 0, 0:4, 0:4])
+    # print(rv_avr_img[0, 0, 0:4, 0:4])
 
 
 if __name__ == "__main__":
@@ -167,11 +167,11 @@ if __name__ == "__main__":
 
     images = images.transpose(3, 2, 0, 1)
     # init_test()
-    # forward_test(images)
-    # forward_opt_test(images)
+    forward_test(images)
+    forward_opt_test(images)
 
     # backward_test(images)
-    backward_opt_test(images)
+    # backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 
