@@ -92,16 +92,10 @@ def backward_opt_test(X):
         seed=2023,
     )
 
-    # new_height = int(
-    #     np.floor((X.shape[2] + ((kernel_size // 2) * 2) - kernel_size) / stride) + 1
-    # )
     new_height = int(np.ceil(X.shape[2] / stride))
     new_width = new_height
-    print("new_height", new_height)
     rand_grad = np.random.randint(0, 10, (3, 32, new_height, new_width))
     input_grad = layer._backpropagate(X, rand_grad)
-
-    print(input_grad.shape)
 
 
 def max_pooling_test(X):
@@ -159,7 +153,6 @@ def avr_pooling_test(X):
 
 if __name__ == "__main__":
     img_path = "/home/gregz/Files/CNN/data/luna.JPG"
-    print(img_path)
     image = imageio.imread(img_path)
     images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 3))
     for i in range(3):
@@ -167,11 +160,11 @@ if __name__ == "__main__":
 
     images = images.transpose(3, 2, 0, 1)
     # init_test()
-    forward_test(images)
-    forward_opt_test(images)
+    # forward_test(images)
+    # forward_opt_test(images)
 
     # backward_test(images)
-    # backward_opt_test(images)
+    backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 

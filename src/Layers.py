@@ -326,8 +326,8 @@ class Convolution2DLayer(Layer):
         for img in range(X.shape[0]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
-                    for x in range(0, X.shape[2], self.v_stride):
-                        for y in range(0, X.shape[3], self.h_stride):
+                    for x in range(X.shape[2]):
+                        for y in range(X.shape[3]):
                             delta[img, chin, x, y] = np.sum(
                                 delta_next[
                                     img,
@@ -348,7 +348,7 @@ class Convolution2DLayer(Layer):
                                             chin,
                                             x : x + self.kernel_height,
                                             y : y + self.kernel_width,
-                                        ]
+                                    ]
                                         * delta_next[
                                             img,
                                             fmap,
