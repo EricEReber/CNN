@@ -245,6 +245,7 @@ class Convolution2DLayer(Layer):
                 self.kernel_tensor[i, j, :, :] = np.random.rand(
                     self.kernel_height, self.kernel_width
                 )
+        return self.kernel_height
 
     def _feedforward(self, X):
         """
@@ -348,7 +349,7 @@ class Convolution2DLayer(Layer):
                                             chin,
                                             x : x + self.kernel_height,
                                             y : y + self.kernel_width,
-                                    ]
+                                        ]
                                         * delta_next[
                                             img,
                                             fmap,
@@ -528,7 +529,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             .transpose(0, 3, 1, 2)
         )
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output / (self.kernel_height*batch.shape[1])) 
+        return self.act_func(output / (self.kernel_height * batch.shape[1]))
 
     def _backpropagate(self, batch, output_grad):
         act_derivative = derivate(self.act_func)
@@ -678,6 +679,7 @@ class FlattenLayer(Layer):
         X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
         bias = np.ones((X.shape[0], 1)) * 0.01
         self.a_matrix = np.hstack([bias, X])
+        print(f"{self.a_matrix.shape=}")
         return self.a_matrix
 
     def _backpropagate(self, delta_next):
@@ -686,5 +688,5 @@ class FlattenLayer(Layer):
     def get_prev_a(self):
         return self.a_matrix
 
-    def _reset_weights(self, prev_nodes):
+    def _reset_weights(self):
         pass

@@ -79,7 +79,7 @@ cnn = CNN(scheduler=adam_scheduler, seed=seed)
 # test way to connect layers
 print(f"{seed=}")
 #
-cnn.add_Convolution2DLayer()
+cnn.add_Convolution2DLayer(optimized=False)
 cnn.add_FlattenLayer()
 
 cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU)
@@ -88,7 +88,7 @@ cnn.add_FullyConnectedLayer(100, LRELU)
 
 cnn.add_OutputLayer(1, sigmoid)
 
-t_train = np.array([[1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1]])
+t_train = np.array([[1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1]]).T
 cnn.fit(
     reshaped_X_train, t_train, lam=lam, batches=batches, epochs=epochs, X_val=reshaped_X_train, t_val=t_train,
 )

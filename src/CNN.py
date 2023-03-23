@@ -22,9 +22,25 @@ class CNN:
     def __init__(
         self,
         cost_func: Callable = CostLogReg,
-        scheduler: Scheduler = Adam(1e-4, 0.9, 0.999),
+        scheduler: Scheduler = Adam(eta=1e-4, rho=0.9, rho2=0.999),
         seed: int = None,
     ):
+        """
+        Description:
+        ------------
+            Instantiates CNN object
+
+        Parameters:
+        ------------
+            I   output_func (costFunctions) cost function for feed forward neural network part of CNN,
+                such as "CostLogReg", "CostOLS" or "CostCrossEntropy"
+
+            II  scheduler (Scheduler) optional parameter, default set to Adam. Can also be set to other
+                schedulers such as AdaGrad, Momentum, RMS_prop and Constant. Note that schedulers have
+                to be instantiated first with proper parameters (for example eta, rho and rho2 for Adam)
+
+            III seed (int) used for seeding all random operations
+        """
         self.layers = list()
         self.cost_func = cost_func
         self.scheduler = scheduler
@@ -33,26 +49,49 @@ class CNN:
         self.seed = seed
         self.pred_format = None
 
-    def add_FullyConnectedLayer(self, nodes: int, act_func="LRELU", scheduler=None) -> None:
+    def add_FullyConnectedLayer(
+        self, nodes: int, act_func="LRELU", scheduler=None
+    ) -> None:
         """
         Description:
         ------------
-            Add a FullyConnectedLayer to the CNN
+            Add a FullyConnectedLayer to the CNN, i.e. a hidden layer in the feed forward neural
+            network part of the CNN. Often called a Dense layer in literature
 
         Parameters:
         ------------
-            I  nodes (int) number of nodes in FullyConnectedLayer 
+            I   nodes (int) number of nodes in FullyConnectedLayer
             II  act_func (activationFunctions) activation function of FullyConnectedLayer,
                 such as "sigmoid", "RELU", "LRELU", "softmax" or "identity"
+            III scheduler (Scheduler) optional parameter, default set to Adam. Can also be set to other
+                schedulers such as AdaGrad, Momentum, RMS_prop and Constant
         """
+        assert self.layers, "FullyConnectedLayer should follow FlattenLayer in CNN"
+
         if scheduler is None:
             scheduler = self.scheduler
 
         layer = FullyConnectedLayer(nodes, act_func, scheduler, self.seed)
         self.layers.append(layer)
 
-    def add_OutputLayer(self, nodes, output_func=CostLogReg, scheduler=None) -> None:
-        assert self.layers, "OutputLayer should not be first added layer"
+    def add_OutputLayer(self, nodes: int, output_func=sigmoid, scheduler=None) -> None:
+        """
+        Description:
+        ------------
+            Add an OutputLayer to the CNN, i.e. a the final layer in the feed forward neural
+            network part of the CNN
+
+        Parameters:
+        ------------
+            I   nodes (int) number of nodes in OutputLayer. Set nodes=1 for binary classification and
+                nodes = number of classes for multi-class classification
+            II  output_func (activationFunctions) activation function for the output layer, such as
+                "identity" for regression, "sigmoid" for binary classification and "softmax" for multi-class
+                classification
+            III scheduler (Scheduler) optional parameter, default set to Adam. Can also be set to other
+                schedulers such as AdaGrad, Momentum, RMS_prop and Constant
+        """
+        assert self.layers, "OutputLayer should follow FullyConnectedLayer in CNN"
 
         if scheduler is None:
             scheduler = self.scheduler
@@ -64,6 +103,12 @@ class CNN:
         self.pred_format = output_layer.get_pred_format()
 
     def add_FlattenLayer(self) -> None:
+        """
+        Description:
+        ------------
+            Add a FlattenLayer to the CNN, which flattens the image data such that it is formatted to
+            be used in the feed forward neural network part of the CNN
+        """
         self.layers.append(FlattenLayer(self.seed))
 
     def add_Convolution2DLayer(
@@ -75,19 +120,53 @@ class CNN:
         v_stride=1,
         h_stride=1,
         pad="same",
-        act_func="LRELU",
+        act_func=LRELU,
+        optimized=True,
     ) -> None:
-        conv_layer = Convolution2DLayer(
-            input_channels,
-            feature_maps,
-            kernel_height,
-            kernel_width,
-            v_stride,
-            h_stride,
-            pad,
-            act_func,
-            self.seed,
-        )
+        """
+        Description:
+        ------------
+            Add a Convolution2DLayer to the CNN, i.e. a convolutional layer with a 2 dimensional kernel. Should be
+            the first layer added to the CNN
+
+        Parameters:
+        ------------
+            I   input_channels (int) specifies amount of input channels. For monochrome images, use input_channels
+                = 1, and input_channels = 3 for colored images, where each channel represents one of R, G and B
+            II  feature_maps (int) amount of feature maps in CNN
+            III kernel_height (int) height of the kernel, also called convolutional filter in literature
+            IV  kernel_width (int) width of the kernel, also called convolutional filter in literature
+            V   v_stride (int) value of vertical stride for dimentionality reduction
+            VI  h_stride (int) value of horizontal stride for dimentionality reduction
+            VII pad (str) default = "same" ensures output size is the same as input size (given stride=1)
+           VIII act_func (activationFunctions) default = "LRELU", nonlinear activation function
+             IX optimized (bool) default = True, uses Convolution2DLayerOPT if True which is much faster when
+                compared to Convolution2DLayer, which is a more straightforward, understandable implementation
+        """
+        if optimized:
+            conv_layer = Convolution2DLayerOPT(
+                input_channels,
+                feature_maps,
+                kernel_height,
+                kernel_width,
+                v_stride,
+                h_stride,
+                pad,
+                act_func,
+                self.seed,
+            )
+        else:
+            conv_layer = Convolution2DLayer(
+                input_channels,
+                feature_maps,
+                kernel_height,
+                kernel_width,
+                v_stride,
+                h_stride,
+                pad,
+                act_func,
+                self.seed,
+            )
         self.layers.append(conv_layer)
 
     def fit(
@@ -100,6 +179,29 @@ class CNN:
         X_val: np.ndarray = None,
         t_val: np.ndarray = None,
     ) -> dict:
+        """
+        Description:
+        ------------
+            Fits the CNN to input X for a given amount of epochs. Performs feedforward and backpropagation passes,
+            can utilize batches, regulariziation and validation if desired.
+
+        Parameters:
+        ------------
+            X (numpy array) with input data in format [images, input channels,
+            image height, image_width]
+            t (numpy array) target labels for input data
+            epochs (int) amount of epochs
+            lam (float) regulariziation term lambda
+            batches (int) amount of batches input data splits into
+            X_val (numpy array) validation data
+            t_val (numpy array) target labels for validation data
+
+        Returns:
+        ------------
+            scores (dict) a dictionary with "train_error", "train_acc", "val_error", val_acc" keys
+            that contain numpy arrays with float values of all accuracies/errors over all epochs.
+            Can be used to create plots. Also used to update the progress bar during training
+        """
 
         # setup
         if self.seed is not None:
@@ -111,6 +213,7 @@ class CNN:
         # create arrays for score metrics
         scores = self._initialize_scores(epochs)
 
+        assert batches <= t.shape[0]
         batch_size = X.shape[0] // batches
 
         try:
@@ -125,7 +228,7 @@ class CNN:
                         X_batch = X[
                             batch * batch_size : (batch + 1) * batch_size, :, :, :
                         ]
-                        t_batch = t[batch * batch_size : (batch + 1) * batch_size]
+                        t_batch = t[batch * batch_size : (batch + 1) * batch_size, :]
 
                     self._feedforward(X_batch)
                     self._backpropagate(X_batch, t_batch, lam)
@@ -161,6 +264,11 @@ class CNN:
         return scores
 
     def _feedforward(self, X_batch) -> np.ndarray:
+        """
+        Description:
+        ------------
+            Performs the feedforward pass for all layers in the CNN. Called from fit()
+        """
         a = X_batch
         for layer in self.layers:
             a = layer._feedforward(a)
@@ -168,6 +276,11 @@ class CNN:
         return a
 
     def _backpropagate(self, X_batch, t_batch, lam) -> None:
+        """
+        Description:
+        ------------
+            Performs backpropagation for all layers in the CNN. Called from fit()
+        """
         assert len(self.layers) >= 2
         reversed_layers = self.layers[::-1]
 
@@ -180,23 +293,23 @@ class CNN:
                 weights_next, delta_next = layer._backpropagate(t_batch, prev_a, lam)
 
             elif isinstance(layer, FullyConnectedLayer):
-                assert delta_next
-                assert weights_next
+                assert delta_next is not None
+                assert weights_next is not None
                 prev_a = prev_layer.get_prev_a()
                 weights_next, delta_next = layer._backpropagate(
                     weights_next, delta_next, prev_a, lam
                 )
 
             elif isinstance(layer, FlattenLayer):
-                assert delta_next
+                assert delta_next is not None
                 delta_next = layer._backpropagate(delta_next)
 
             elif isinstance(layer, Convolution2DLayer):
-                assert delta_next
+                assert delta_next is not None
                 delta_next = layer._backpropagate(X_batch, delta_next)
 
             elif isinstance(layer, Pooling2DLayer):
-                assert delta_next
+                assert delta_next is not None
                 delta_next = layer._backpropagate(X_batch, delta_next)
 
             else:
@@ -211,6 +324,19 @@ class CNN:
         X_val: np.ndarray,
         t_val: np.ndarray,
     ) -> dict:
+        """
+        Description:
+        ------------
+            Computes scores such as training error, training accuracy, validation error
+            and validation accuracy for the CNN depending on if a validation set is used
+            and if the CNN performs classification or regression
+
+        Returns:
+        ------------
+            scores (dict) a dictionary with "train_error", "train_acc", "val_error", val_acc" keys
+            that contain numpy arrays with float values of all accuracies/errors over all epochs.
+            Can be used to create plots. Also used to update the progress bar during training
+        """
 
         pred_train = self.predict(X)
         cost_function_train = self.cost_func(t)
@@ -233,6 +359,18 @@ class CNN:
         return scores
 
     def _initialize_scores(self, epochs) -> dict:
+        """
+        Description:
+        ------------
+            Initializes scores such as training error, training accuracy, validation error
+            and validation accuracy for the CNN
+
+        Returns:
+        ------------
+            A dictionary with "train_error", "train_acc", "val_error", val_acc" keys that
+            will contain numpy arrays with float values of all accuracies/errors over all epochs
+            when passed through the _compute_scores() function during fit()
+        """
         scores = dict()
 
         train_errors = np.empty(epochs)
@@ -260,14 +398,15 @@ class CNN:
 
         Parameters:
         ------------
-            I   X (np.ndarray) input [img, feature_maps, height, width]
+            I   X (np.ndarray) input of format [img, feature_maps, height, width]
         """
-        prev_nodes = X.shape[1] * X.shape[2] * X.shape[3]
         for layer in self.layers:
+            if isinstance(layer, Convolution2DLayer):
+                kernel_height = layer._reset_weights()
+                prev_nodes = (X.shape[1] * X.shape[2] * X.shape[3]) // kernel_height
+                print(f"{prev_nodes=}")
             if isinstance(layer, FullyConnectedLayer):
                 prev_nodes = layer._reset_weights(prev_nodes)
-            else:
-                layer._reset_weights()
 
     def predict(self, X: np.ndarray, *, threshold=0.5) -> np.ndarray:
         """
