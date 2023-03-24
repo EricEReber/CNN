@@ -403,7 +403,7 @@ class CNN:
         """
         prev_nodes = X
         for layer in self.layers:
-                prev_nodes = layer._reset_weights(prev_nodes)
+            prev_nodes = layer._reset_weights(prev_nodes)
 
     def predict(self, X: np.ndarray, *, threshold=0.5) -> np.ndarray:
         """

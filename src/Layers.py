@@ -246,7 +246,9 @@ class Convolution2DLayer(Layer):
 
         new_height = int(np.ceil(prev_nodes.shape[2] / self.v_stride))
         new_width = int(np.ceil(prev_nodes.shape[3] / self.h_stride))
-        next_nodes = np.ones((prev_nodes.shape[0], self.feature_maps, new_height, new_width))
+        next_nodes = np.ones(
+            (prev_nodes.shape[0], self.feature_maps, new_height, new_width)
+        )
         return next_nodes / self.kernel_height
 
     def _feedforward(self, X):
@@ -683,7 +685,7 @@ class FlattenLayer(Layer):
         self.z_matrix = X
         bias = np.ones((X.shape[0], 1)) * 0.01
         self.a_matrix = np.hstack([bias, X])
-        
+
         return self.a_matrix
 
     def _backpropagate(self, weights_next, delta_next):
@@ -699,5 +701,8 @@ class FlattenLayer(Layer):
         return self.a_matrix
 
     def _reset_weights(self, prev_nodes):
-        prev_nodes = prev_nodes.reshape(prev_nodes.shape[0], prev_nodes.shape[1] * prev_nodes.shape[2] * prev_nodes.shape[3])
+        prev_nodes = prev_nodes.reshape(
+            prev_nodes.shape[0],
+            prev_nodes.shape[1] * prev_nodes.shape[2] * prev_nodes.shape[3],
+        )
         return prev_nodes.shape[1]
