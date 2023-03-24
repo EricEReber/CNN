@@ -17,22 +17,32 @@ Test file to test differnet layers and combinations of layers in a CNN
 
 # mnist = tf.keras.datasets.mnist
 #
-# (x_train, y_train), (x_test, y_test) = mnist.load_data()
+# (x_train, y_train), (x_val, y_val) = mnist.load_data()
 
 dataset = load_digits()
 mnist = dataset["images"]
 target = dataset["target"]
 
-x_train, x_test, y_train, y_test = train_test_split(mnist, target)
+x_train, x_val, y_train, y_val = train_test_split(mnist, target)
 print(f"{x_train.shape=}")
-print(f"{x_test.shape=}")
+print(f"{x_val.shape=}")
 print(f"{y_train.shape=}")
 
 x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1], x_train.shape[2])
-x_test = x_test.reshape(x_test.shape[0], 1, x_test.shape[1], x_test.shape[2])
+x_val = x_val.reshape(x_val.shape[0], 1, x_val.shape[1], x_val.shape[2])
 y_train = y_train.reshape(y_train.shape[0], 1)
-y_test = y_test.reshape(y_test.shape[0], 1)
+y_val = y_val.reshape(y_val.shape[0], 1)
 
+scaler = MinMaxScaler()
+scaler.fit(x_train[0, 0, :, :])
+for i in range(x_train.shape[0]):
+    for j in range(x_train.shape[1]):
+        x_train[i,j, :, :]= scaler.transform(x_train[i, j, :, :])
+        # x_val = scaler.transform(x_val)
+
+for i in range(x_val.shape[0]):
+    for j in range(x_val.shape[1]):
+        x_val[i,j, :, :]= scaler.transform(x_val[i, j, :, :])
 # simple dataset
 np.random.seed(1337)
 
@@ -65,6 +75,11 @@ cnn.add_FullyConnectedLayer(100, LRELU)
 cnn.add_OutputLayer(1, sigmoid)
 
 cnn.fit(
-    x_train, y_train, lam=lam, batches=batches, epochs=epochs, X_val=x_test, t_val=y_test,
+    x_train,
+    y_train,
+    lam=lam,
+    batches=batches,
+    epochs=epochs,
+    X_val=x_val,
+    t_val=y_val,
 )
-
