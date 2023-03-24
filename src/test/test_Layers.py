@@ -80,6 +80,7 @@ cnn = CNN(scheduler=adam_scheduler, seed=seed)
 print(f"{seed=}")
 #
 cnn.add_Convolution2DLayer(optimized=False)
+cnn.add_Convolution2DLayer(optimized=False)
 cnn.add_FlattenLayer()
 
 cnn.add_FullyConnectedLayer(X_train.shape[1], LRELU)

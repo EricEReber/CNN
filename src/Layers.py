@@ -225,9 +225,7 @@ class Convolution2DLayer(Layer):
         self.pad = pad
         self.act_func = act_func
 
-        self._reset_weights()
-
-    def _reset_weights(self):
+    def _reset_weights(self, prev_nodes):
         if self.seed is not None:
             np.random.seed(self.seed)
 
@@ -245,7 +243,11 @@ class Convolution2DLayer(Layer):
                 self.kernel_tensor[i, j, :, :] = np.random.rand(
                     self.kernel_height, self.kernel_width
                 )
-        return self.kernel_height
+
+        new_height = int(np.ceil(prev_nodes.shape[2] / self.v_stride))
+        new_width = int(np.ceil(prev_nodes.shape[3] / self.h_stride))
+        next_nodes = np.ones((prev_nodes.shape[0], self.feature_maps, new_height, new_width))
+        return next_nodes / self.kernel_height
 
     def _feedforward(self, X):
         """
@@ -670,23 +672,32 @@ class Pooling2DLayer(Layer):
 
 
 class FlattenLayer(Layer):
-    def __init__(self, seed=None):
+    def __init__(self, act_func=LRELU, seed=None):
         super().__init__(seed)
+        self.act_func = act_func
 
     def _feedforward(self, X):
         self.input_shape = X.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
         X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
+        self.z_matrix = X
         bias = np.ones((X.shape[0], 1)) * 0.01
         self.a_matrix = np.hstack([bias, X])
-        print(f"{self.a_matrix.shape=}")
+        
         return self.a_matrix
 
-    def _backpropagate(self, delta_next):
-        return delta_next.reshape(self.input_shape)
+    def _backpropagate(self, weights_next, delta_next):
+        activation_derivative = derivate(self.act_func)
+
+        delta_matrix = (weights_next[1:, :] @ delta_next.T).T * activation_derivative(
+            self.z_matrix
+        )
+
+        return delta_matrix.reshape(self.input_shape)
 
     def get_prev_a(self):
         return self.a_matrix
 
-    def _reset_weights(self):
-        pass
+    def _reset_weights(self, prev_nodes):
+        prev_nodes = prev_nodes.reshape(prev_nodes.shape[0], prev_nodes.shape[1] * prev_nodes.shape[2] * prev_nodes.shape[3])
+        return prev_nodes.shape[1]

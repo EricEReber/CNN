@@ -102,14 +102,14 @@ class CNN:
         self.layers.append(output_layer)
         self.pred_format = output_layer.get_pred_format()
 
-    def add_FlattenLayer(self) -> None:
+    def add_FlattenLayer(self, act_func=LRELU) -> None:
         """
         Description:
         ------------
             Add a FlattenLayer to the CNN, which flattens the image data such that it is formatted to
             be used in the feed forward neural network part of the CNN
         """
-        self.layers.append(FlattenLayer(self.seed))
+        self.layers.append(FlattenLayer(act_func=act_func, seed=self.seed))
 
     def add_Convolution2DLayer(
         self,
@@ -302,7 +302,8 @@ class CNN:
 
             elif isinstance(layer, FlattenLayer):
                 assert delta_next is not None
-                delta_next = layer._backpropagate(delta_next)
+                assert weights_next is not None
+                delta_next = layer._backpropagate(weights_next, delta_next)
 
             elif isinstance(layer, Convolution2DLayer):
                 assert delta_next is not None
@@ -400,12 +401,8 @@ class CNN:
         ------------
             I   X (np.ndarray) input of format [img, feature_maps, height, width]
         """
+        prev_nodes = X
         for layer in self.layers:
-            if isinstance(layer, Convolution2DLayer):
-                kernel_height = layer._reset_weights()
-                prev_nodes = (X.shape[1] * X.shape[2] * X.shape[3]) // kernel_height
-                print(f"{prev_nodes=}")
-            if isinstance(layer, FullyConnectedLayer):
                 prev_nodes = layer._reset_weights(prev_nodes)
 
     def predict(self, X: np.ndarray, *, threshold=0.5) -> np.ndarray:
