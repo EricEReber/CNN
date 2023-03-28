@@ -345,26 +345,26 @@ class Convolution2DLayer(Layer):
                                 )
                             )
 
-                            for k_x in range(self.kernel_height):
-                                for k_y in range(self.kernel_width):
-                                    kernel_grad[chin, fmap, k_x, k_y] = np.sum(
-                                        X_pad[
-                                            img,
-                                            chin,
-                                            x : x + self.kernel_height,
-                                            y : y + self.kernel_width,
-                                        ]
-                                        * delta_next[
-                                            img,
-                                            fmap,
-                                            x : x + self.kernel_height,
-                                            y : y + self.kernel_width,
-                                        ]
-                                    )
-                                    # Each filter is updated
-                    self.kernel_tensor[chin, fmap, :, :] -= kernel_grad[
-                        chin, fmap, :, :
-                    ]
+        for chin in range(self.input_channels):
+            for fmap in range(self.feature_maps):
+                for k_x in range(self.kernel_height):
+                    for k_y in range(self.kernel_width):
+                        kernel_grad[chin, fmap, k_x, k_y] = np.sum(
+                            X_pad[
+                                img,
+                                chin,
+                                x : x + self.kernel_height,
+                                y : y + self.kernel_width,
+                            ]
+                            * delta_next[
+                                img,
+                                fmap,
+                                x : x + self.kernel_height,
+                                y : y + self.kernel_width,
+                            ]
+                        )
+                        # Each filter is updated
+        self.kernel_tensor[:, :, :, :] -= kernel_grad[:, :, :, :]
 
         return delta
 
