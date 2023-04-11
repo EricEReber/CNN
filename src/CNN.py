@@ -50,7 +50,7 @@ class CNN:
         self.pred_format = None
 
     def add_FullyConnectedLayer(
-        self, nodes: int, act_func="LRELU", scheduler=None
+        self, nodes: int, act_func=LRELU, scheduler=None
     ) -> None:
         """
         Description:
@@ -420,6 +420,11 @@ class CNN:
 
         if self.pred_format == "Binary":
             return np.where(prediction > threshold, 1, 0)
+        elif self.pred_format == "Multi-class":
+            class_prediction = np.zeros(prediction.shape)
+            for i in range(prediction.shape[0]):
+                class_prediction[i, np.argmax(prediction[i, :])] = 1
+            return class_prediction
         else:
             return prediction
 

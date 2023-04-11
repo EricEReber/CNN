@@ -183,7 +183,7 @@ class OutputLayer(FullyConnectedLayer):
         elif self.act_func.__name__ == "sigmoid" or self.act_func.__name__ == "tanh":
             self.pred_format = "Binary"
         else:
-            self.pred_format = "Mulit-class"
+            self.pred_format = "Multi-class"
 
     def _reset_weights(self, prev_nodes):
         if self.seed is not None:
