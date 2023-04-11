@@ -72,7 +72,7 @@ cnn.add_FullyConnectedLayer(100, LRELU)
 
 cnn.add_FullyConnectedLayer(100, LRELU)
 
-cnn.add_OutputLayer(1, sigmoid)
+cnn.add_OutputLayer(10, sigmoid)
 
 cnn.fit(
     x_train,
