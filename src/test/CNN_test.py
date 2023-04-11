@@ -35,6 +35,8 @@ print(f"{y_train.shape=}")
 
 x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1], x_train.shape[2])
 x_val = x_val.reshape(x_val.shape[0], 1, x_val.shape[1], x_val.shape[2])
+# y_train = y_train.reshape(y_train.shape[0], 1)
+# y_val = y_val.reshape(y_val.shape[0], 1)
 
 scaler = MinMaxScaler()
 scaler.fit(x_train[0, 0, :, :])
@@ -76,7 +78,7 @@ cnn.add_FullyConnectedLayer(30, LRELU)
 
 cnn.add_FullyConnectedLayer(20, LRELU)
 
-cnn.add_OutputLayer(10, softmax)
+cnn.add_OutputLayer(1, softmax)
 
 cnn.fit(
     x_train,
