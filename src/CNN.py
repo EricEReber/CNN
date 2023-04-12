@@ -304,6 +304,7 @@ class CNN:
                 assert delta_next is not None
                 assert weights_next is not None
                 delta_next = layer._backpropagate(weights_next, delta_next)
+                # print(f"{delta_next.shape=}")
 
             elif isinstance(layer, Convolution2DLayer):
                 assert delta_next is not None

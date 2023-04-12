@@ -45,14 +45,14 @@ class FullyConnectedLayer(Layer):
         self.a_matrix = None
         self.z_matrix = None
 
-    def _feedforward(self, X):
-        if len(X.shape) == 1:
-            X = X.reshape((1, X.shape[0]))
+    def _feedforward(self, X_batch):
+        if len(X_batch.shape) == 1:
+            X_batch = X_batch.reshape((1, X_batch.shape[0]))
 
-        self.z_matrix = X @ self.weights
+        self.z_matrix = X_batch @ self.weights
 
         self.a_matrix = self.act_func(self.z_matrix)
-        bias = np.ones((X.shape[0], 1)) * 0.01
+        bias = np.ones((X_batch.shape[0], 1)) * 0.01
         self.a_matrix = np.hstack([bias, self.a_matrix])
 
         return self.a_matrix
@@ -127,12 +127,12 @@ class OutputLayer(FullyConnectedLayer):
         # self._reset_weights()
         self.set_pred_format()  # Decides what type of pred_format the output layer performs
 
-    def _feedforward(self, X: np.ndarray):
-        if len(X.shape) == 1:
-            X = X.reshape((1, X.shape[0]))
+    def _feedforward(self, X_batch: np.ndarray):
+        if len(X_batch.shape) == 1:
+            X_batch = X_batch.reshape((1, X_batch.shape[0]))
 
         # Adding bias to the data
-        self.z_matrix = X @ self.weights
+        self.z_matrix = X_batch @ self.weights
         self.a_matrix = self.act_func(self.z_matrix)
 
         return self.a_matrix
@@ -251,19 +251,25 @@ class Convolution2DLayer(Layer):
         )
         return next_nodes / self.kernel_height
 
-    def _feedforward(self, X):
+    def _feedforward(self, X_batch):
         """
-        X = [batch_size, input_maps, img_height, img_width]
+        X_batch = [batch_size, input_maps, img_height, img_width]
         """
 
-        X_pad = self._padding(X)
+        if X_batch.shape[1] != self.input_channels:
+            raise AssertionError(
+                f"ERROR: Number of input channels in data ({X_batch.shape[1]}) is not equal to input channels in Convolution2DLayer ({self.input_channels})!"
+            )
 
-        new_height = int(np.ceil(X.shape[2] / self.v_stride))
-        new_width = int(np.ceil(X.shape[3] / self.h_stride))
+        X_pad = self._padding(X_batch)
 
+        new_height = int(np.ceil(X_batch.shape[2] / self.v_stride))
+        new_width = int(np.ceil(X_batch.shape[3] / self.h_stride))
+
+        # print(f"{X_pad.shape=}")
         output = np.ndarray(
             (
-                X.shape[0],
+                X_batch.shape[0],
                 self.feature_maps,
                 new_height,
                 new_width,
@@ -272,13 +278,13 @@ class Convolution2DLayer(Layer):
         # Will need this parameter for backpropagation
         self.output_shape = output.shape
         # new_x, new_y = 0, 0
-        for img in range(X.shape[0]):
+        for img in range(X_batch.shape[0]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
                     new_x = 0
-                    for x in range(0, X.shape[2], self.v_stride):
+                    for x in range(0, X_batch.shape[2], self.v_stride):
                         new_y = 0
-                        for y in range(0, X.shape[3], self.h_stride):
+                        for y in range(0, X_batch.shape[3], self.h_stride):
                             output[img, fmap, new_x, new_y] = np.sum(
                                 X_pad[
                                     img,
@@ -302,37 +308,48 @@ class Convolution2DLayer(Layer):
 
         return self.act_func(output / (self.kernel_height))
 
-    def _backpropagate(self, X, delta_next):
+    def _backpropagate(self, X_batch, delta_next):
         # TODO: Fix backprog for stride larger than one
-        delta = np.zeros((X.shape))
+        delta = np.zeros((X_batch.shape))
         kernel_grad = np.zeros((self.kernel_tensor.shape))
 
-        X_pad = self._padding(X)
+        X_pad = self._padding(X_batch)
 
         # Since an activation function is used at the output of the convolution layer, its derivative
-        # has to be accounted for in the backpropagation -> as if ReLU a layer on its own.
+        # has to be accounted for in the backpropagation -> as if ReLU was a layer on its own.
         act_derivative = derivate(self.act_func)
         delta_next = act_derivative(delta_next)
 
-        if self.v_stride > 1:
-            ind = 1
+        # TODO should delta_next.shape eventually equal X_batch.shape if strided?
+        # or something else that is wrong?
+        if self.v_stride > 1 or self.h_stride > 1:
+            v_ind = 1
+            h_ind = 1
             for i in range(delta_next.shape[2]):
                 for j in range(self.h_stride - 1):
-                    delta_next = np.insert(delta_next, ind, 0, axis=2)
+                    delta_next = np.insert(delta_next, h_ind, 0, axis=2)
                 for k in range(self.v_stride - 1):
-                    delta_next = np.insert(delta_next, ind, 0, axis=3)
-                ind += self.v_stride
+                    delta_next = np.insert(delta_next, v_ind, 0, axis=3)
+                v_ind += self.v_stride
+                h_ind += self.h_stride
 
-            delta_next = delta_next[:, :, : X.shape[2], : X.shape[3]]
+            delta_next = delta_next[:, :, : X_batch.shape[2], : X_batch.shape[3]]
 
+        # TODO X_batch that gets sent in is not output from previous conv2dlayer!
+        # but just the batch that was sent to the first conv2dlayer (see fit, CNN.py)
+        # creates problem where we have incorrect number of input_channels (prev feature_maps)
+
+        # print(f"{delta_next.shape=}")
         # The gradient received from the next layer also needs to be padded
         delta_next = self._padding(delta_next)
+        # print(f"{delta.shape=}")
 
-        for img in range(X.shape[0]):
+        # print(f"{X_batch.shape=}")
+        for img in range(X_batch.shape[0]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
-                    for x in range(X.shape[2]):
-                        for y in range(X.shape[3]):
+                    for x in range(X_batch.shape[2]):
+                        for y in range(X_batch.shape[3]):
                             delta[img, chin, x, y] = np.sum(
                                 delta_next[
                                     img,
@@ -368,46 +385,48 @@ class Convolution2DLayer(Layer):
 
         return delta
 
-    def _padding(self, batch, batch_type="image"):
+    def _padding(self, X_batch, batch_type="image"):
         # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
         if self.pad == "same" and batch_type == "image":
-            new_height = batch.shape[2] + (self.kernel_height // 2) * 2
-            new_width = batch.shape[3] + (self.kernel_width // 2) * 2
+            new_height = X_batch.shape[2] + (self.kernel_height // 2) * 2
+            new_width = X_batch.shape[3] + (self.kernel_width // 2) * 2
             hk_height = self.kernel_height // 2
             hk_width = self.kernel_width // 2
 
             new_tensor = np.ndarray(
-                (batch.shape[0], batch.shape[1], new_height, new_width)
+                (X_batch.shape[0], X_batch.shape[1], new_height, new_width)
             )
 
-            for img in range(batch.shape[0]):
-                padded_img = np.zeros((batch.shape[1], new_height, new_width))
+            for img in range(X_batch.shape[0]):
+                padded_img = np.zeros((X_batch.shape[1], new_height, new_width))
                 padded_img[
                     :,
                     hk_height : new_height - hk_height,
                     hk_width : new_width - hk_width,
-                ] = batch[img, :, :, :]
+                ] = X_batch[img, :, :, :]
                 new_tensor[img, :, :, :] = padded_img[:, :, :]
 
             return new_tensor
 
         elif self.pad == "same" and batch_type == "grad":
-            new_height = batch.shape[2] + (self.kernel_height // 2) * 2
-            new_width = batch.shape[3] + (self.kernel_width // 2) * 2
+            new_height = X_batch.shape[2] + (self.kernel_height // 2) * 2
+            new_width = X_batch.shape[3] + (self.kernel_width // 2) * 2
             hk_height = self.kernel_height // 2
             hk_width = self.kernel_width // 2
 
             new_tensor = np.zeros(
-                (batch.shape[0], batch.shape[1], new_height, new_width)
+                (X_batch.shape[0], X_batch.shape[1], new_height, new_width)
             )
 
-            new_tensor[:, :, : batch.shape[2], : batch.shape[3]] = batch[:, :, :, :]
+            new_tensor[:, :, : X_batch.shape[2], : X_batch.shape[3]] = X_batch[
+                :, :, :, :
+            ]
 
             return new_tensor
 
         else:
-            return batch
+            return X_batch
 
 
 class Convolution2DLayerOPT(Convolution2DLayer):
@@ -435,10 +454,10 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             seed,
         )
 
-    def _extract_windows(self, batch, batch_type="image"):
+    def _extract_windows(self, X_batch, batch_type="image"):
         # pad the images
         # TODO: Change padding so that it takes the height and width of kernel as arguments
-        batch_pad = self._padding(batch)
+        batch_pad = self._padding(X_batch)
         img_height, img_width = batch_pad.shape[2:]
 
         windows = []
@@ -476,45 +495,54 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             else:
                 h_stride = int(np.floor(self.h_stride / 2))
 
-            upsampled_height = (batch.shape[2] * self.v_stride) - v_stride
+            upsampled_height = (X_batch.shape[2] * self.v_stride) - v_stride
 
-            upsampled_width = (batch.shape[3] * self.h_stride) - h_stride
+            upsampled_width = (X_batch.shape[3] * self.h_stride) - h_stride
 
             ind = 1
-            for i in range(batch.shape[2]):
+            for i in range(X_batch.shape[2]):
                 for j in range(self.h_stride - 1):
-                    batch = np.insert(batch, ind, 0, axis=2)
+                    X_batch = np.insert(X_batch, ind, 0, axis=2)
                 for k in range(self.v_stride - 1):
-                    batch = np.insert(batch, ind, 0, axis=3)
+                    X_batch = np.insert(X_batch, ind, 0, axis=3)
                 ind += self.v_stride
 
-            batch = batch[:, :, :upsampled_height, :upsampled_width]
+            X_batch = X_batch[:, :, :upsampled_height, :upsampled_width]
 
-            batch = self._padding(batch, batch_type="grad")
+            X_batch = self._padding(X_batch, batch_type="grad")
 
             windows = []
-            for h in range(batch.shape[2] - self.kernel_height + self.kernel_width % 2):
+            for h in range(
+                X_batch.shape[2] - self.kernel_height + self.kernel_width % 2
+            ):
                 for w in range(
-                    batch.shape[3] - self.kernel_width + self.kernel_width % 2
+                    X_batch.shape[3] - self.kernel_width + self.kernel_width % 2
                 ):
                     # ...get an image patch of size [fil_size, fil_size]
 
-                    window = batch[
+                    window = X_batch[
                         :, :, h : h + self.kernel_height, w : w + self.kernel_width
                     ]
                     windows.append(window)
 
             return np.stack(windows), upsampled_height, upsampled_width
 
-    def _feedforward(self, batch):
+    def _feedforward(self, X_batch):
+
+        # print(f"{X_batch.shape=}")
+        if X_batch.shape[1] != self.input_channels:
+            raise AssertionError(
+                f"ERROR: Number of input channels in data ({X_batch.shape[1]}) is not equal to input channels in Convolution2DLayer ({self.input_channels})!"
+            )
+
         kernel = self.kernel_tensor
 
-        new_height = int(np.ceil(batch.shape[2] / self.v_stride))
-        new_width = int(np.ceil(batch.shape[3] / self.h_stride))
+        new_height = int(np.ceil(X_batch.shape[2] / self.v_stride))
+        new_width = int(np.ceil(X_batch.shape[3] / self.h_stride))
 
-        windows = self._extract_windows(batch)
+        windows = self._extract_windows(X_batch)
         windows = windows.transpose(1, 0, 2, 3, 4).reshape(
-            batch.shape[0],
+            X_batch.shape[0],
             new_height * new_width,
             -1,
         )
@@ -525,7 +553,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         output = (
             (windows @ kernel)
             .reshape(
-                batch.shape[0],
+                X_batch.shape[0],
                 new_height,
                 new_width,
                 -1,
@@ -533,22 +561,22 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             .transpose(0, 3, 1, 2)
         )
         # The output is reshaped and rearranged to appropriate shape
-        return self.act_func(output / (self.kernel_height * batch.shape[1]))
+        return self.act_func(output / (self.kernel_height * X_batch.shape[1]))
 
-    def _backpropagate(self, batch, output_grad):
+    def _backpropagate(self, X_batch, output_grad):
         act_derivative = derivate(self.act_func)
         output_grad = act_derivative(output_grad)
 
-        new_height = int(np.ceil(batch.shape[2] / self.v_stride))
-        new_width = int(np.ceil(batch.shape[3] / self.h_stride))
+        new_height = int(np.ceil(X_batch.shape[2] / self.v_stride))
+        new_width = int(np.ceil(X_batch.shape[3] / self.h_stride))
         kernel = self.kernel_tensor
 
-        windows = self._extract_windows(batch, "image").reshape(
-            batch.shape[0] * new_height * new_width, -1
+        windows = self._extract_windows(X_batch, "image").reshape(
+            X_batch.shape[0] * new_height * new_width, -1
         )
 
         output_grad_tr = output_grad.transpose(0, 2, 3, 1).reshape(
-            batch.shape[0] * new_height * new_width, -1
+            X_batch.shape[0] * new_height * new_width, -1
         )
 
         kernel_grad = (
@@ -562,15 +590,20 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             output_grad, "grad"
         )
 
+        # print(f"{windows_out.transpose(1, 0, 2, 3, 4).shape=}")
+        # print(f"{X_batch.shape[0]=}")
+        # print(f"{upsampled_height=}")
+        # print(f"{upsampled_width=}")
+        # TODO this line causes a crash if kernel size has one odd number and one whole number
+        # (other asymmetric kernels work)
         windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
-            batch.shape[0] * upsampled_height,
-            upsampled_width,
+            X_batch.shape[0] * upsampled_height * upsampled_width,
             -1,
         )
         kernel_r = kernel.reshape(self.input_channels, -1)
 
         input_grad = (windows_out @ kernel_r.T).reshape(
-            batch.shape[0], upsampled_height, upsampled_width, kernel.shape[0]
+            X_batch.shape[0], upsampled_height, upsampled_width, kernel.shape[0]
         )
         input_grad = input_grad.transpose(0, 3, 1, 2)
 
@@ -578,7 +611,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         self.kernel_tensor -= kernel_grad
 
         # Output the gradient to propagate backwards
-        print("Success")
         return input_grad
 
 
@@ -593,18 +625,18 @@ class Pooling2DLayer(Layer):
         self.h_stride = h_stride
         self.pooling = pooling
 
-    def _feedforward(self, X):
+    def _feedforward(self, X_batch):
         # Saving the input shape for use in the backwardpass
-        self.input_shape = X.shape
+        self.input_shape = X_batch.shape
 
         # Computing the size of the feature maps based on kernel size and the stride parameter
-        new_height = (X.shape[2] - self.kernel_height) // self.v_stride + 1
-        if X.shape[2] == X.shape[3]:
+        new_height = (X_batch.shape[2] - self.kernel_height) // self.v_stride + 1
+        if X_batch.shape[2] == X_batch.shape[3]:
             new_width = new_height
         else:
-            new_width = (X.shape[2] - self.kernel_width) // self.h_stride + 1
+            new_width = (X_batch.shape[2] - self.kernel_width) // self.h_stride + 1
 
-        output = np.ndarray((X.shape[0], X.shape[1], new_height, new_width))
+        output = np.ndarray((X_batch.shape[0], X_batch.shape[1], new_height, new_width))
 
         if self.pooling == "max":
             self.pooling_action = np.max
@@ -616,7 +648,7 @@ class Pooling2DLayer(Layer):
                 for x in range(new_height):
                     for y in range(new_width):
                         output[img, fmap, x, y] = self.pooling_action(
-                            X[
+                            X_batch[
                                 img,
                                 fmap,
                                 (x * self.v_stride) : (x * self.v_stride)
@@ -628,7 +660,7 @@ class Pooling2DLayer(Layer):
 
         return output
 
-    def _backpropagate(self, X, delta_next):
+    def _backpropagate(self, X_batch, delta_next):
         delta_input = np.zeros((self.input_shape))
 
         for img in range(delta_next.shape[0]):
@@ -636,7 +668,7 @@ class Pooling2DLayer(Layer):
                 for x in range(delta_next.shape[2]):
                     for y in range(delta_next.shape[3]):
                         if self.pooling == "max":
-                            window = X[
+                            window = X_batch[
                                 img,
                                 fmap,
                                 (x * self.v_stride) : (x * self.v_stride)
@@ -678,13 +710,15 @@ class FlattenLayer(Layer):
         super().__init__(seed)
         self.act_func = act_func
 
-    def _feedforward(self, X):
-        self.input_shape = X.shape
+    def _feedforward(self, X_batch):
+        self.input_shape = X_batch.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) Where FM = Feature maps, B = Batch size, H = Height and W = Width
-        X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
-        self.z_matrix = X
-        bias = np.ones((X.shape[0], 1)) * 0.01
-        self.a_matrix = np.hstack([bias, X])
+        X_batch = X_batch.reshape(
+            X_batch.shape[0], X_batch.shape[1] * X_batch.shape[2] * X_batch.shape[3]
+        )
+        self.z_matrix = X_batch
+        bias = np.ones((X_batch.shape[0], 1)) * 0.01
+        self.a_matrix = np.hstack([bias, X_batch])
 
         return self.a_matrix
 
