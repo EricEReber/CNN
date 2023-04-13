@@ -154,6 +154,7 @@ class CNN:
                 pad,
                 act_func,
                 self.seed,
+                reset_self=False,
             )
         else:
             conv_layer = Convolution2DLayer(
@@ -166,6 +167,7 @@ class CNN:
                 pad,
                 act_func,
                 self.seed,
+                reset_self=False,
             )
         self.layers.append(conv_layer)
 

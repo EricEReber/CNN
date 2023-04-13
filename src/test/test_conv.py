@@ -152,7 +152,8 @@ def avr_pooling_test(X):
 
 
 if __name__ == "__main__":
-    img_path = "/home/gregz/Files/CNN/data/luna.JPG"
+    # img_path = "/home/gregz/Files/CNN/data/luna.JPG"
+    img_path = "/home/eric/documents/deep_learning/CNN/data/luna.JPG"
     image = imageio.imread(img_path)
     images = np.ndarray((image.shape[0], image.shape[1], image.shape[2], 3))
     for i in range(3):
@@ -161,10 +162,10 @@ if __name__ == "__main__":
     images = images.transpose(3, 2, 0, 1)
     # init_test()
     # forward_test(images)
-    # forward_opt_test(images)
+    forward_opt_test(images)
 
     # backward_test(images)
-    backward_opt_test(images)
+    # backward_opt_test(images)
     # max_pooling_test(images)
     # max_pooling_back_test(images, images)
 

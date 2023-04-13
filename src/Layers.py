@@ -214,6 +214,7 @@ class Convolution2DLayer(Layer):
         pad,
         act_func: Callable,
         seed=None,
+        reset_self=True,
     ):
         super().__init__(seed)
         self.input_channels = input_channels
@@ -224,8 +225,10 @@ class Convolution2DLayer(Layer):
         self.h_stride = h_stride
         self.pad = pad
         self.act_func = act_func
+        if reset_self == True:
+            self._reset_weights_single_layer()
 
-    def _reset_weights(self, prev_nodes):
+    def _reset_weights_single_layer(self):
         if self.seed is not None:
             np.random.seed(self.seed)
 
@@ -243,6 +246,9 @@ class Convolution2DLayer(Layer):
                 self.kernel_tensor[i, j, :, :] = np.random.rand(
                     self.kernel_height, self.kernel_width
                 )
+
+    def _reset_weights(self, prev_nodes):
+        self._reset_weights_single_layer()
 
         new_height = int(np.ceil(prev_nodes.shape[2] / self.v_stride))
         new_width = int(np.ceil(prev_nodes.shape[3] / self.h_stride))
@@ -441,6 +447,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         pad,
         act_func: Callable,
         seed=None,
+        reset_self=True,
     ):
         super().__init__(
             input_channels,
@@ -453,6 +460,8 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             act_func,
             seed,
         )
+        if reset_self == True:
+            self._reset_weights_single_layer()
 
     def _extract_windows(self, X_batch, batch_type="image"):
         # pad the images

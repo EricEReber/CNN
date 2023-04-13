@@ -2,7 +2,6 @@ from src.Layers import *
 from sklearn.datasets import load_digits
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
-from collections import OrderedDict
 from src.FFNN import FFNN
 from src.CNN import CNN
 from src.costFunctions import *
