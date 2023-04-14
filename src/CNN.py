@@ -134,8 +134,8 @@ class CNN:
             I   input_channels (int) specifies amount of input channels. For monochrome images, use input_channels
                 = 1, and input_channels = 3 for colored images, where each channel represents one of R, G and B
             II  feature_maps (int) amount of feature maps in CNN
-            III kernel_height (int) height of the kernel, also called convolutional filter in literature
-            IV  kernel_width (int) width of the kernel, also called convolutional filter in literature
+            III kernel_height (int) height of the kernel, also called 'convolutional filter' in literature
+            IV  kernel_width (int) width of the kernel, also called 'convolutional filter' in literature
             V   v_stride (int) value of vertical stride for dimentionality reduction
             VI  h_stride (int) value of horizontal stride for dimentionality reduction
             VII pad (str) default = "same" ensures output size is the same as input size (given stride=1)
@@ -170,6 +170,29 @@ class CNN:
                 reset_self=False,
             )
         self.layers.append(conv_layer)
+
+    def add_PoolingLayer(
+        self, kernel_height=2, kernel_width=2, v_stride=1, h_stride=1, pooling="max"
+    ) -> None:
+        """
+        Description:
+        ------------
+            Add a Pooling2DLayer to the CNN, i.e. a pooling layer that reduces the dimentionality of
+            the image data. It is not necessary to use a Pooling2DLayer when creating a CNN, but it
+            can be used to speed up the training
+
+        Parameters:
+        ------------
+            I   kernel_height (int) height of the kernel used for pooling
+            II  kernel_width (int) width of the kernel used for pooling
+            III v_stride (int) value of vertical stride for dimentionality reduction
+            IV  h_stride (int) value of horizontal stride for dimentionality reduction
+            V   pooling (str) either "max" or "average", describes type of pooling performed
+        """
+        pooling_layer = Pooling2DLayer(
+            kernel_height, kernel_width, v_stride, h_stride, pooling, self.seed
+        )
+        self.layers.append(pooling_layer)
 
     def fit(
         self,
@@ -233,7 +256,7 @@ class CNN:
                         t_batch = t[batch * batch_size : (batch + 1) * batch_size, :]
 
                     self._feedforward(X_batch)
-                    self._backpropagate(X_batch, t_batch, lam)
+                    self._backpropagate(t_batch, lam)
 
                 # reset schedulers for each epoch (some schedulers pass in this call)
                 for layer in self.layers:
@@ -277,7 +300,7 @@ class CNN:
 
         return a
 
-    def _backpropagate(self, X_batch, t_batch, lam) -> None:
+    def _backpropagate(self, t_batch, lam) -> None:
         """
         Description:
         ------------
@@ -286,36 +309,42 @@ class CNN:
         assert len(self.layers) >= 2
         reversed_layers = self.layers[::-1]
 
+        # for every layer, backwards
         for i in range(len(reversed_layers) - 1):
             layer = reversed_layers[i]
             prev_layer = reversed_layers[i + 1]
 
+            # OutputLayer
             if isinstance(layer, OutputLayer):
                 prev_a = prev_layer.get_prev_a()
                 weights_next, delta_next = layer._backpropagate(t_batch, prev_a, lam)
 
+            # FullyConnectedLayer
             elif isinstance(layer, FullyConnectedLayer):
-                assert delta_next is not None
-                assert weights_next is not None
+                assert delta_next is not None, "No OutputLayer to follow FullyConnectedLayer"
+                assert weights_next is not None, "No OutputLayer to follow FullyConnectedLayer"
                 prev_a = prev_layer.get_prev_a()
                 weights_next, delta_next = layer._backpropagate(
                     weights_next, delta_next, prev_a, lam
                 )
 
+            # FlattenLayer
             elif isinstance(layer, FlattenLayer):
-                assert delta_next is not None
-                assert weights_next is not None
+                assert delta_next is not None, "No FullyConnectedLayer to follow FlattenLayer"
+                assert weights_next is not None, "No FullyConnectedLayer to follow FlattenLayer"
                 delta_next = layer._backpropagate(weights_next, delta_next)
-                # print(f"{delta_next.shape=}")
 
+            # Convolution2DLayer and Convolution2DLayerOPT
             elif isinstance(layer, Convolution2DLayer):
-                assert delta_next is not None
-                delta_next = layer._backpropagate(X_batch, delta_next)
+                assert delta_next is not None, "No FlattenLayer to follow Convolution2DLayer"
+                delta_next = layer._backpropagate(delta_next)
 
+            # Pooling2DLayer
             elif isinstance(layer, Pooling2DLayer):
-                assert delta_next is not None
-                delta_next = layer._backpropagate(X_batch, delta_next)
+                assert delta_next is not None, "No Layer to follow Pooling2DLayer"
+                delta_next = layer._backpropagate(delta_next)
 
+            # Catch error
             else:
                 raise NotImplementedError
 

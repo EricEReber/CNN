@@ -29,7 +29,6 @@ dataset = load_digits()
 mnist = dataset["images"]
 target = dataset["target"]
 target = onehot(target)
-print(target)
 
 x_train, x_val, y_train, y_val = train_test_split(mnist, target)
 print(f"{x_train.shape=}")
@@ -71,16 +70,32 @@ momentum_scheduler = Momentum(eta, momentum)
 
 cnn = CNN(cost_func=CostCrossEntropy, scheduler=adam_scheduler, seed=seed)
 
-# test way to connect layers
-# FOR stride, input_channels bug
-# cnn.add_Convolution2DLayer(input_channels=1, feature_maps=3, kernel_height=3, kernel_width=3, v_stride=2, h_stride=2, optimized=False)
-# cnn.add_Convolution2DLayer(input_channels=3, feature_maps=3, kernel_height=3, kernel_width=3, v_stride=2, h_stride=2, optimized=False)
+# FOR odd-whole kernel bug
+# cnn.add_Convolution2DLayer(
+#     input_channels=1, feature_maps=1, kernel_height=2, kernel_width=6, optimized=True
+# )
+# cnn.add_Convolution2DLayer(
+#     input_channels=1, feature_maps=1, kernel_height=2, kernel_width=3, optimized=True
+# )
+
 
 cnn.add_Convolution2DLayer(
-    input_channels=1, feature_maps=1, kernel_height=2, kernel_width=6, optimized=True
+    act_func=LRELU,
+    input_channels=1,
+    feature_maps=1,
+    kernel_height=2,
+    kernel_width=6,
+    optimized=True,
 )
+cnn.add_PoolingLayer(kernel_width=3, kernel_height=3, v_stride=1, h_stride=1, pooling="max")
+
 cnn.add_Convolution2DLayer(
-    input_channels=1, feature_maps=1, kernel_height=1, kernel_width=3, optimized=True
+    act_func=LRELU,
+    input_channels=1,
+    feature_maps=1,
+    kernel_height=3,
+    kernel_width=3,
+    optimized=True,
 )
 cnn.add_FlattenLayer()
 
