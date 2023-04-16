@@ -93,7 +93,7 @@ cnn.add_Convolution2DLayer(
     act_func=LRELU,
     input_channels=1,
     feature_maps=1,
-    kernel_height=3,
+    kernel_height=5,
     kernel_width=3,
     optimized=True,
 )

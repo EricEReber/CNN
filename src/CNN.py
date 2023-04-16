@@ -21,7 +21,7 @@ warnings.simplefilter("error")
 class CNN:
     def __init__(
         self,
-        cost_func: Callable = CostLogReg,
+        cost_func: Callable = CostCrossEntropy,
         scheduler: Scheduler = Adam(eta=1e-4, rho=0.9, rho2=0.999),
         seed: int = None,
     ):
