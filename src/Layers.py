@@ -727,7 +727,7 @@ class Pooling2DLayer(Layer):
 
         # Computing the size of the feature maps based on kernel size and the stride parameter
         strided_height = (X_batch.shape[height] - self.kernel_height) // self.v_stride + 1
-        if X_batch.shape[height] == X_batch.shape[height]:
+        if X_batch.shape[height] == X_batch.shape[width]:
             strided_width = strided_height
         else:
             strided_width = (X_batch.shape[width] - self.kernel_width) // self.h_stride + 1
