@@ -725,13 +725,19 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         # TODO this line causes a crash if kernel size has one odd number and one whole number
         # (other asymmetric kernels work)
         # TODO switch out (1, 0, 2, 3, 4) with global variables
-        # TODO make if windows_out.size / new_dim % 1 != 0 (is float)
-        # make np.zeros(new_dim, ceil(windows_out.size/new_dim), map windows out
+        # TODO make if windows_out.size / new_windows_first_dim % 1 != 0 (is float)
+        # make np.zeros(new_windows_first_dim, ceil(windows_out.size/new_windows_first_dim), map windows out
         # into zeros
-        new_dim = self.input.shape[input_index] * upsampled_height * upsampled_width
+        new_windows_first_dim = self.input.shape[input_index] * upsampled_height * upsampled_width
+        new_windows_sec_dim = np.ceil(windows_out.size/new_windows_first_dim)
+
         print(f"{windows_out.size=}")
-        windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
-            new_dim, int(np.ceil((windows_out.size) / new_dim))
+        windows_out = windows_out.transpose(1, 0, 2, 3, 4)
+        if (windows_out.size/new_windows_first_dim) % 1 != 0:
+            windows_temp = np.zeros((new_windows_first_dim, new_windows_sec_dim))
+            windows_out[
+        .reshape(
+            new_windows_first_dim, int(np.ceil((windows_out.size) / new_windows_first_dim))
         )
         kernel_r = kernel.reshape(self.input_channels, -1)
 
