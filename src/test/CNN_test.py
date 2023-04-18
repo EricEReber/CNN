@@ -97,7 +97,7 @@ cnn.add_Convolution2DLayer(
     feature_maps=1,
     kernel_height=5,
     kernel_width=3,
-    optimized=True,
+    optimized=False,
 )
 cnn.add_FlattenLayer()
 
