@@ -31,14 +31,16 @@ target = dataset["target"]
 target = onehot(target)
 
 x_train, x_val, y_train, y_val = train_test_split(mnist, target)
-print(f"{x_train.shape=}")
-print(f"{x_val.shape=}")
-print(f"{y_train.shape=}")
 
 x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1], x_train.shape[2])
 x_val = x_val.reshape(x_val.shape[0], 1, x_val.shape[1], x_val.shape[2])
+x_train = x_train[:, :, :x_val.shape[2]-4, :]
+x_val = x_val[:, :, :x_val.shape[2]-4, :]
 # y_train = y_train.reshape(y_train.shape[0], 1)
 # y_val = y_val.reshape(y_val.shape[0], 1)
+print(f"{x_train.shape=}")
+print(f"{x_val.shape=}")
+print(f"{y_train.shape=}")
 
 scaler = MinMaxScaler()
 scaler.fit(x_train[0, 0, :, :])
@@ -71,32 +73,32 @@ momentum_scheduler = Momentum(eta, momentum)
 cnn = CNN(cost_func=CostCrossEntropy, scheduler=adam_scheduler, seed=seed)
 
 # FOR odd-whole kernel bug
-# cnn.add_Convolution2DLayer(
-#     input_channels=1, feature_maps=1, kernel_height=2, kernel_width=6, optimized=True
-# )
-# cnn.add_Convolution2DLayer(
-#     input_channels=1, feature_maps=1, kernel_height=2, kernel_width=3, optimized=True
-# )
-
-
 cnn.add_Convolution2DLayer(
-    act_func=LRELU,
-    input_channels=1,
-    feature_maps=1,
-    kernel_height=2,
-    kernel_width=6,
-    optimized=True,
+    input_channels=1, feature_maps=1, kernel_height=2, kernel_width=6, optimized=True
 )
-cnn.add_PoolingLayer(kernel_width=3, kernel_height=3, v_stride=1, h_stride=1, pooling="max")
-
 cnn.add_Convolution2DLayer(
-    act_func=LRELU,
-    input_channels=1,
-    feature_maps=1,
-    kernel_height=5,
-    kernel_width=3,
-    optimized=True,
+    input_channels=1, feature_maps=1, kernel_height=2, kernel_width=3, optimized=True
 )
+
+
+# cnn.add_Convolution2DLayer(
+#     act_func=LRELU,
+#     input_channels=1,
+#     feature_maps=1,
+#     kernel_height=3,
+#     kernel_width=2,
+#     optimized=True,
+# )
+# cnn.add_PoolingLayer(kernel_width=2, kernel_height=3, v_stride=1, h_stride=1, pooling="max")
+#
+# cnn.add_Convolution2DLayer(
+#     act_func=LRELU,
+#     input_channels=1,
+#     feature_maps=1,
+#     kernel_height=5,
+#     kernel_width=3,
+#     optimized=True,
+# )
 cnn.add_FlattenLayer()
 
 cnn.add_FullyConnectedLayer(30, LRELU)
