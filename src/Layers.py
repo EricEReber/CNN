@@ -349,7 +349,7 @@ class Convolution2DLayer(Layer):
         )
 
         # save input and output for backpropagation
-        self.input = X_batch
+        self.X_batch_feedforward = X_batch
         self.output_shape = output.shape
 
         # checking for errors, no need to look here :)
@@ -384,11 +384,11 @@ class Convolution2DLayer(Layer):
 
     def _backpropagate(self, delta_term_next):
         # intiate matrices
-        delta_term = np.zeros((self.input.shape))
+        delta_term = np.zeros((self.X_batch_feedforward.shape))
         gradient_kernel = np.zeros((self.kernel.shape))
 
         # pad input for convolution
-        X_batch_padded = self._padding(self.input)
+        X_batch_padded = self._padding(self.X_batch_feedforward)
 
         # Since an activation function is used at the output of the convolution layer, its derivative
         # has to be accounted for in the backpropagation -> as if ReLU was a layer on its own.
@@ -413,18 +413,18 @@ class Convolution2DLayer(Layer):
                 h_ind += self.h_stride
 
             delta_term_next = delta_term_next[
-                :, :, : self.input.shape[height_index], : self.input.shape[width_index]
+                :, :, : self.X_batch_feedforward.shape[height_index], : self.X_batch_feedforward.shape[width_index]
             ]
 
         # The gradient received from the next layer also needs to be padded
         delta_term_next = self._padding(delta_term_next)
 
         # calculate delta term by convolving next delta term with kernel
-        for img in range(self.input.shape[input_index]):
+        for img in range(self.X_batch_feedforward.shape[input_index]):
             for chin in range(self.input_channels):
                 for fmap in range(self.feature_maps):
-                    for h in range(self.input.shape[height_index]):
-                        for w in range(self.input.shape[width_index]):
+                    for h in range(self.X_batch_feedforward.shape[height_index]):
+                        for w in range(self.X_batch_feedforward.shape[width_index]):
                             delta_term[img, chin, h, w] = np.sum(
                                 delta_term_next[
                                     img,
@@ -517,9 +517,9 @@ class Convolution2DLayer(Layer):
             return X_batch
 
     def _check_for_errors(self):
-        if self.input.shape[input_channel_index] != self.input_channels:
+        if self.X_batch_feedforward.shape[input_channel_index] != self.input_channels:
             raise AssertionError(
-                f"ERROR: Number of input channels in data ({self.input.shape[input_channel_index]}) is not equal to input channels in Convolution2DLayerOPT ({self.input_channels})! Please change the number of input channels of the Convolution2DLayer such that they are equal"
+                f"ERROR: Number of input channels in data ({self.X_batch_feedforward.shape[input_channel_index]}) is not equal to input channels in Convolution2DLayerOPT ({self.input_channels})! Please change the number of input channels of the Convolution2DLayer such that they are equal"
             )
 
 
@@ -635,7 +635,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         # for a more "by the book" approach, please look at the _feedforward method of Convolution2DLayer
 
         # save the input for backpropagation
-        self.input = X_batch
+        self.X_batch_feedforward = X_batch
 
         # check that there are the correct amount of input channels
         self._check_for_errors()
@@ -687,16 +687,16 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         act_derivative = derivate(self.act_func)
         delta_term_next = act_derivative(delta_term_next)
 
-        strided_height = int(np.ceil(self.input.shape[height_index] / self.v_stride))
-        strided_width = int(np.ceil(self.input.shape[width_index] / self.h_stride))
+        strided_height = int(np.ceil(self.X_batch_feedforward.shape[height_index] / self.v_stride))
+        strided_width = int(np.ceil(self.X_batch_feedforward.shape[width_index] / self.h_stride))
         kernel = self.kernel
 
-        windows = self._extract_windows(self.input, "image").reshape(
-            self.input.shape[input_index] * strided_height * strided_width, -1
+        windows = self._extract_windows(self.X_batch_feedforward, "image").reshape(
+            self.X_batch_feedforward.shape[input_index] * strided_height * strided_width, -1
         )
 
         output_grad_tr = delta_term_next.transpose(0, 2, 3, 1).reshape(
-            self.input.shape[input_index] * strided_height * strided_width, -1
+            self.X_batch_feedforward.shape[input_index] * strided_height * strided_width, -1
         )
 
         gradient_kernel = (
@@ -710,39 +710,26 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             .transpose(0, 3, 1, 2)
         )
 
-        # Computing the input gradient
+        # computing the input gradient
         windows_out, upsampled_height, upsampled_width = self._extract_windows(
             delta_term_next, "grad"
         )
 
-        import sys
-
-        print(f"{windows_out.transpose(1, 0, 2, 3, 4).shape=}")
-        print(f"{self.input.shape[0]=}")
-        print(f"{upsampled_height=}")
-        print(f"{upsampled_width=}")
-        # sys.exit(0)
-        # TODO this line causes a crash if kernel size has one odd number and one whole number
-        # (other asymmetric kernels work)
-        # TODO switch out (1, 0, 2, 3, 4) with global variables
-        # TODO make if windows_out.size / new_windows_first_dim % 1 != 0 (is float)
-        # make np.zeros(new_windows_first_dim, ceil(windows_out.size/new_windows_first_dim), map windows out
-        # into zeros
-        new_windows_first_dim = self.input.shape[input_index] * upsampled_height * upsampled_width
-        new_windows_sec_dim = np.ceil(windows_out.size/new_windows_first_dim)
-
-        print(f"{windows_out.size=}")
-        windows_out = windows_out.transpose(1, 0, 2, 3, 4)
-        if (windows_out.size/new_windows_first_dim) % 1 != 0:
-            windows_temp = np.zeros((new_windows_first_dim, new_windows_sec_dim))
-            windows_out[
-        .reshape(
-            new_windows_first_dim, int(np.ceil((windows_out.size) / new_windows_first_dim))
+        # TODO special CASE AAAAAAAAAAH
+        new_windows_first_dim = (
+            self.X_batch_feedforward.shape[input_index] * upsampled_height * upsampled_width
         )
-        kernel_r = kernel.reshape(self.input_channels, -1)
+        new_windows_sec_dim = int(np.ceil(windows_out.size / new_windows_first_dim))
 
-        input_grad = (windows_out @ kernel_r.T).reshape(
-            self.input.shape[input_index],
+        windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
+            new_windows_first_dim,
+            new_windows_sec_dim
+        )
+
+        kernel_reshaped = kernel.reshape(self.input_channels, -1)
+
+        input_grad = (windows_out @ kernel_reshaped.T).reshape(
+            self.X_batch_feedforward.shape[input_index],
             upsampled_height,
             upsampled_width,
             kernel.shape[kernel_input_channels_index],
@@ -757,9 +744,9 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
     def _check_for_errors(self):
         # compares input channels of data to input channels of Convolution2DLayer
-        if self.input.shape[input_channel_index] != self.input_channels:
+        if self.X_batch_feedforward.shape[input_channel_index] != self.input_channels:
             raise AssertionError(
-                f"ERROR: Number of input channels in data ({self.input.shape[input_channel_index]}) is not equal to input channels in Convolution2DLayerOPT ({self.input_channels})! Please change the number of input channels of the Convolution2DLayer such that they are equal"
+                f"ERROR: Number of input channels in data ({self.X_batch_feedforward.shape[input_channel_index]}) is not equal to input channels in Convolution2DLayerOPT ({self.input_channels})! Please change the number of input channels of the Convolution2DLayer such that they are equal"
             )
 
 
@@ -782,7 +769,7 @@ class Pooling2DLayer(Layer):
 
     def _feedforward(self, X_batch):
         # Saving the input for use in the backwardpass
-        self.input = X_batch
+        self.X_batch_feedforward = X_batch
 
         # check if user is silly
         self._check_for_errors()
@@ -835,15 +822,17 @@ class Pooling2DLayer(Layer):
 
     def _backpropagate(self, delta_term_next):
         # initiate delta term array
-        delta_term = np.zeros((self.input.shape))
+        delta_term = np.zeros((self.X_batch_feedforward.shape))
 
-        for img in range(delta_term_next.shape[inputs]):
-            for fmap in range(delta_term_next.shape[feature_maps]):
-                for x in range(0, delta_term_next.shape[height], self.v_stride):
-                    for y in range(0, delta_term_next.shape[width], self.h_stride):
+        for img in range(delta_term_next.shape[input_index]):
+            for fmap in range(delta_term_next.shape[feature_maps_index]):
+                for x in range(0, delta_term_next.shape[height_index], self.v_stride):
+                    for y in range(
+                        0, delta_term_next.shape[width_index], self.h_stride
+                    ):
                         # max pooling
                         if self.pooling == "max":
-                            window = self.input[
+                            window = self.X_batch_feedforward[
                                 img,
                                 fmap,
                                 x : x + self.kernel_height,
@@ -903,11 +892,11 @@ class Pooling2DLayer(Layer):
     def _check_for_errors(self):
         # check if input is smaller than kernel size -> error
         assert (
-            self.input.shape[width_index] >= self.kernel_width
-        ), f"ERROR: Pooling kernel width_index ({self.kernel_width}) larger than data width_index ({self.input.shape[2]}), please lower the kernel width_index of the Pooling2DLayer"
+            self.X_batch_feedforward.shape[width_index] >= self.kernel_width
+        ), f"ERROR: Pooling kernel width_index ({self.kernel_width}) larger than data width_index ({self.X_batch_feedforward.input.shape[2]}), please lower the kernel width_index of the Pooling2DLayer"
         assert (
-            self.input.shape[height_index] >= self.kernel_height
-        ), f"ERROR: Pooling kernel height_index ({self.kernel_height}) larger than data height_index ({self.input.shape[3]}), please lower the kernel height_index of the Pooling2DLayer"
+            self.X_batch_feedforward.shape[height_index] >= self.kernel_height
+        ), f"ERROR: Pooling kernel height_index ({self.kernel_height}) larger than data height_index ({self.X_batch_feedforward.input.shape[3]}), please lower the kernel height_index of the Pooling2DLayer"
 
 
 class FlattenLayer(Layer):
@@ -917,7 +906,7 @@ class FlattenLayer(Layer):
 
     def _feedforward(self, X_batch):
         # save input for backpropagation
-        self.input_shape = X_batch.shape
+        self.X_batch_feedforward_shape = X_batch.shape
         # Remember, the data has the following shape: (B, FM, H, W, ) in the convolutional layers
         # whilst the data has the shape (B, FM * H * W) in the fully connected layers
         # FM = Feature maps, B = Batch size, H = Height and W = Width
@@ -946,7 +935,7 @@ class FlattenLayer(Layer):
 
         # FlattenLayer does not update weights
         # reshapes delta layer to convolutional layer data format [Input, Feature_Maps, Height, Width]
-        return delta_term.reshape(self.input_shape)
+        return delta_term.reshape(self.X_batch_feedforward_shape)
 
     def get_prev_a(self):
         return self.a_matrix
