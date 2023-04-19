@@ -763,16 +763,14 @@ class Pooling2DLayer(Layer):
 
         for img in range(delta_term_next.shape[inputs]):
             for fmap in range(delta_term_next.shape[feature_maps]):
-                for x in range(delta_term_next.shape[height]):
-                    for y in range(delta_term_next.shape[width]):
+                for x in range(0, delta_term_next.shape[height], self.v_stride):
+                    for y in range(0, delta_term_next.shape[width], self.h_stride):
                         if self.pooling == "max":
                             window = self.input[
                                 img,
                                 fmap,
-                                (x * self.v_stride) : (x * self.v_stride)
-                                + self.kernel_height,
-                                (y * self.h_stride) : (y * self.h_stride)
-                                + self.kernel_width,
+                                x : x + self.kernel_height,
+                                y : y + self.kernel_width,
                             ]
 
                             i, j = np.unravel_index(window.argmax(), window.shape)
@@ -780,18 +778,16 @@ class Pooling2DLayer(Layer):
                             delta_term[
                                 img,
                                 fmap,
-                                (x * self.v_stride) + i,
-                                (y * self.h_stride) + j,
+                                (x + i),
+                                (y + j),
                             ] += delta_term_next[img, fmap, x, y]
 
                         if self.pooling == "average":
                             delta_term[
                                 img,
                                 fmap,
-                                (x * self.v_stride) : (x * self.v_stride)
-                                + self.kernel_height,
-                                (y * self.h_stride) : (y * self.h_stride)
-                                + self.kernel_width,
+                                x : x + self.kernel_height,
+                                y : y + self.kernel_width,
                             ] = (
                                 delta_term_next[img, fmap, x, y]
                                 / self.kernel_height
