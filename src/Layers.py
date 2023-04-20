@@ -412,6 +412,7 @@ class Convolution2DLayer(Layer):
                 v_ind += self.v_stride
                 h_ind += self.h_stride
 
+            # crops out 0-rows and 0-columns
             delta_term_next = delta_term_next[
                 :, :, : self.X_batch_feedforward.shape[height_index], : self.X_batch_feedforward.shape[width_index]
             ]
@@ -470,8 +471,8 @@ class Convolution2DLayer(Layer):
             half_kernel_height = self.kernel_height // 2
             half_kernel_width = self.kernel_width // 2
 
-            new_tensor = np.ndarray(
                 (
+            new_tensor = np.ndarray(
                     X_batch.shape[input_index],
                     X_batch.shape[feature_maps_index],
                     padded_height,
@@ -645,7 +646,7 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         strided_width = int(np.ceil(X_batch.shape[width_index] / self.h_stride))
 
         # get windows of the image for more computationally efficient convolution
-        # the idea is that we want to align the dimantions that we wish to matrix
+        # the idea is that we want to align the dimensions that we wish to matrix
         # multiply, then use a simple matrix multiplication instead of convolution.
         # then, we reshape the size back to its intended shape
         windows = self._extract_windows(X_batch)
@@ -715,7 +716,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             delta_term_next, "grad"
         )
 
-        # TODO special CASE AAAAAAAAAAH
         new_windows_first_dim = (
             self.X_batch_feedforward.shape[input_index] * upsampled_height * upsampled_width
         )
