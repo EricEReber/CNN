@@ -5,7 +5,6 @@ import warnings
 from src.Schedulers import *
 from src.activationFunctions import *
 from src.costFunctions import *
-from src.ProgressBar import *
 from src.Layers import *
 from autograd import grad, elementwise_grad
 from random import random, seed
@@ -321,8 +320,12 @@ class CNN:
 
             # FullyConnectedLayer
             elif isinstance(layer, FullyConnectedLayer):
-                assert delta_next is not None, "No OutputLayer to follow FullyConnectedLayer"
-                assert weights_next is not None, "No OutputLayer to follow FullyConnectedLayer"
+                assert (
+                    delta_next is not None
+                ), "No OutputLayer to follow FullyConnectedLayer"
+                assert (
+                    weights_next is not None
+                ), "No OutputLayer to follow FullyConnectedLayer"
                 prev_a = prev_layer.get_prev_a()
                 weights_next, delta_next = layer._backpropagate(
                     weights_next, delta_next, prev_a, lam
@@ -330,13 +333,19 @@ class CNN:
 
             # FlattenLayer
             elif isinstance(layer, FlattenLayer):
-                assert delta_next is not None, "No FullyConnectedLayer to follow FlattenLayer"
-                assert weights_next is not None, "No FullyConnectedLayer to follow FlattenLayer"
+                assert (
+                    delta_next is not None
+                ), "No FullyConnectedLayer to follow FlattenLayer"
+                assert (
+                    weights_next is not None
+                ), "No FullyConnectedLayer to follow FlattenLayer"
                 delta_next = layer._backpropagate(weights_next, delta_next)
 
             # Convolution2DLayer and Convolution2DLayerOPT
             elif isinstance(layer, Convolution2DLayer):
-                assert delta_next is not None, "No FlattenLayer to follow Convolution2DLayer"
+                assert (
+                    delta_next is not None
+                ), "No FlattenLayer to follow Convolution2DLayer"
                 delta_next = layer._backpropagate(delta_next)
 
             # Pooling2DLayer
