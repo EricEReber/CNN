@@ -164,7 +164,6 @@ class OutputLayer(FullyConnectedLayer):
         self.set_pred_format()
 
     def _feedforward(self, X_batch: np.ndarray):
-
         # calculate a, z
         # note that bias is not added as this would create an extra output class
         self.z_matrix = X_batch @ self.weights
@@ -395,27 +394,31 @@ class Convolution2DLayer(Layer):
         act_derivative = derivate(self.act_func)
         delta_term_next = act_derivative(delta_term_next)
 
-        # reconstruct shape
-        # TODO does this work?
-        if self.v_stride > 1 or self.h_stride > 1:
+        if self.v_stride > 1:
             v_ind = 1
-            h_ind = 1
             for i in range(delta_term_next.shape[height_index]):
-                for j in range(self.h_stride - 1):
+                for j in range(self.v_stride - 1):
                     delta_term_next = np.insert(
-                        delta_term_next, h_ind, 0, axis=height_index
+                        delta_term_next, v_ind, 0, axis=height_index
                     )
-                for k in range(self.v_stride - 1):
+                v_ind += self.v_stride
+
+        if self.h_stride > 1:
+            h_ind = 1
+            for i in range(delta_term_next.shape[width_index]):
+                for k in range(self.h_stride - 1):
                     delta_term_next = np.insert(
                         delta_term_next, v_ind, 0, axis=width_index
                     )
-                v_ind += self.v_stride
                 h_ind += self.h_stride
 
             # crops out 0-rows and 0-columns
-            delta_term_next = delta_term_next[
-                :, :, : self.X_batch_feedforward.shape[height_index], : self.X_batch_feedforward.shape[width_index]
-            ]
+        delta_term_next = delta_term_next[
+            :,
+            :,
+            : self.X_batch_feedforward.shape[height_index],
+            : self.X_batch_feedforward.shape[width_index],
+        ]
 
         # The gradient received from the next layer also needs to be padded
         delta_term_next = self._padding(delta_term_next)
@@ -471,8 +474,8 @@ class Convolution2DLayer(Layer):
             half_kernel_height = self.kernel_height // 2
             half_kernel_width = self.kernel_width // 2
 
-                (
             new_tensor = np.ndarray(
+                (
                     X_batch.shape[input_index],
                     X_batch.shape[feature_maps_index],
                     padded_height,
@@ -598,14 +601,19 @@ class Convolution2DLayerOPT(Convolution2DLayer):
 
             upsampled_width = (X_batch.shape[width_index] * self.h_stride) - h_stride
 
-            ind = 1
-            # TODO need description of what this does. Why for range of width_index? What about height_index?
-            for i in range(X_batch.shape[height_index]):
-                for j in range(self.h_stride - 1):
-                    X_batch = np.insert(X_batch, ind, 0, axis=height_index)
-                for k in range(self.v_stride - 1):
-                    X_batch = np.insert(X_batch, ind, 0, axis=width_index)
-                ind += self.v_stride
+            if self.v_stride > 1:
+                v_ind = 1
+                for i in range(X_batch.shape[height_index]):
+                    for j in range(self.v_stride - 1):
+                        X_batch = np.insert(X_batch, ind, 0, axis=height_index)
+                    v_ind += self.v_stride
+
+            if self.h_stride > 1:
+                h_ind = 1
+                for i in range(X_batch.shape[width_index]):
+                    for k in range(self.h_stride - 1):
+                        X_batch = np.insert(X_batch, ind, 0, axis=width_index)
+                    h_ind += self.h_stride
 
             X_batch = X_batch[:, :, :upsampled_height, :upsampled_width]
 
@@ -688,16 +696,26 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         act_derivative = derivate(self.act_func)
         delta_term_next = act_derivative(delta_term_next)
 
-        strided_height = int(np.ceil(self.X_batch_feedforward.shape[height_index] / self.v_stride))
-        strided_width = int(np.ceil(self.X_batch_feedforward.shape[width_index] / self.h_stride))
+        strided_height = int(
+            np.ceil(self.X_batch_feedforward.shape[height_index] / self.v_stride)
+        )
+        strided_width = int(
+            np.ceil(self.X_batch_feedforward.shape[width_index] / self.h_stride)
+        )
         kernel = self.kernel
 
         windows = self._extract_windows(self.X_batch_feedforward, "image").reshape(
-            self.X_batch_feedforward.shape[input_index] * strided_height * strided_width, -1
+            self.X_batch_feedforward.shape[input_index]
+            * strided_height
+            * strided_width,
+            -1,
         )
 
         output_grad_tr = delta_term_next.transpose(0, 2, 3, 1).reshape(
-            self.X_batch_feedforward.shape[input_index] * strided_height * strided_width, -1
+            self.X_batch_feedforward.shape[input_index]
+            * strided_height
+            * strided_width,
+            -1,
         )
 
         gradient_kernel = (
@@ -717,13 +735,14 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         )
 
         new_windows_first_dim = (
-            self.X_batch_feedforward.shape[input_index] * upsampled_height * upsampled_width
+            self.X_batch_feedforward.shape[input_index]
+            * upsampled_height
+            * upsampled_width
         )
         new_windows_sec_dim = int(np.ceil(windows_out.size / new_windows_first_dim))
 
         windows_out = windows_out.transpose(1, 0, 2, 3, 4).reshape(
-            new_windows_first_dim,
-            new_windows_sec_dim
+            new_windows_first_dim, new_windows_sec_dim
         )
 
         kernel_reshaped = kernel.reshape(self.input_channels, -1)
