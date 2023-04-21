@@ -466,7 +466,6 @@ class Convolution2DLayer(Layer):
         return delta_term
 
     def _padding(self, X_batch, batch_type="image"):
-        # TODO: Need fixing to output so the channels are merged back together after padding is finished!
 
         if self.pad == "same" and batch_type == "image":
             padded_height = X_batch.shape[height_index] + (self.kernel_height // 2) * 2
@@ -528,6 +527,12 @@ class Convolution2DLayer(Layer):
 
 
 class Convolution2DLayerOPT(Convolution2DLayer):
+    """
+    Am optimized version of the convolution layer above which 
+    utilizes an approach of extracting windows of size equivalent 
+    in size to the filter. The convoution is then performed on those 
+    windows instead of a full feature map. 
+    """
     def __init__(
         self,
         input_channels,
@@ -556,7 +561,13 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             self._reset_weights_single_layer()
 
     def _extract_windows(self, X_batch, batch_type="image"):
-        # TODO: Change padding so that it takes the height_index and width_index of kernel as arguments
+        # TODO: Change padding so that it takes the height_index and width_index of kernel as arguments -> WHY?
+        """
+        Receives as input the X_batch with shape (batch_size, feature_maps, image_height, image_width) 
+        and extract windows of size filter_height * filter_width for every image and every feature_map. 
+        It then returns an np.ndarray of shape (image_height * image_width, batch_size, feature_maps, kernel_height, kernel_width) 
+        which will be used either to filter the images in feedforward or to calculate the gradient.
+        """
 
         windows = []
         if batch_type == "image":
@@ -585,8 +596,17 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                     windows.append(window)
             return np.stack(windows)
 
+
+        # In order to be able to perform backprogagation by the method of window extraction, 
+        # here is a modified approach to extracting the windows which allow for the necessary 
+        # upsampling of the gradient in case the on of the stride parameters is larger than one. 
+
         if batch_type == "grad":
+
             # TODO description
+            # In the case of one of the stride parameters being odd, we have to take some 
+            # extra care in calculating the upsampled size of X_batch. We solve this 
+            # by simply flooring the result of dividing stride by 2.
             if self.v_stride < 2 or self.v_stride % 2 == 0:
                 v_stride = 0
             else:
@@ -600,7 +620,11 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             upsampled_height = (X_batch.shape[height_index] * self.v_stride) - v_stride
 
             upsampled_width = (X_batch.shape[width_index] * self.h_stride) - h_stride
-
+            
+            # When upsampling, we need to insert rows and columns filled with zeros 
+            # into each feature map. How many of those we have to insert is purely 
+            # dependant on the value of stride parameter in the vertical and horizontal 
+            # direction.
             if self.v_stride > 1:
                 v_ind = 1
                 for i in range(X_batch.shape[height_index]):
@@ -609,11 +633,15 @@ class Convolution2DLayerOPT(Convolution2DLayer):
                     v_ind += self.v_stride
 
             if self.h_stride > 1:
-                h_ind = 1
+                h_ind = 1mg_height * img_width,
                 for i in range(X_batch.shape[width_index]):
                     for k in range(self.h_stride - 1):
                         X_batch = np.insert(X_batch, ind, 0, axis=width_index)
                     h_ind += self.h_stride
+
+            # Since the insertion of zero-filled rows and columns isn't perfect, we have 
+            # to assure that the resulting feature maps will have the expected upsampled height 
+            # and width by cutting them og at desired dimensions. 
 
             X_batch = X_batch[:, :, :upsampled_height, :upsampled_width]
 
