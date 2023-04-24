@@ -34,8 +34,8 @@ x_train, x_val, y_train, y_val = train_test_split(mnist, target)
 
 x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1], x_train.shape[2])
 x_val = x_val.reshape(x_val.shape[0], 1, x_val.shape[1], x_val.shape[2])
-x_train = x_train[:, :, :x_val.shape[2]-4, :]
-x_val = x_val[:, :, :x_val.shape[2]-4, :]
+x_train = x_train[:, :, :x_val.shape[2], :]
+x_val = x_val[:, :, :x_val.shape[2], :]
 # y_train = y_train.reshape(y_train.shape[0], 1)
 # y_val = y_val.reshape(y_val.shape[0], 1)
 print(f"{x_train.shape=}")
