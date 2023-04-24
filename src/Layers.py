@@ -644,8 +644,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             # and width by cutting them og at desired dimensions. 
 
             X_batch = X_batch[:, :, :upsampled_height, :upsampled_width]
-            print(upsampled_height)
-            print(upsampled_width)
 
             X_batch_padded = self._padding(X_batch, batch_type="grad")
 
@@ -726,8 +724,6 @@ class Convolution2DLayerOPT(Convolution2DLayer):
         act_derivative = derivate(self.act_func)
         delta_term_next = act_derivative(delta_term_next)
 
-        print(f'{delta_term_next.shape=}')
-        
         strided_height = int(
             np.ceil(self.X_batch_feedforward.shape[height_index] / self.v_stride)
         )
@@ -744,16 +740,12 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             -1,
         )
 
-        print(f'{windows.shape=}')
-
         output_grad_tr = delta_term_next.transpose(0, 2, 3, 1).reshape(
             self.X_batch_feedforward.shape[input_index]
             * strided_height
             * strided_width,
             -1,
         )
-
-        print(f'{output_grad_tr.shape=}')
 
         gradient_kernel = (
             (windows.T @ output_grad_tr)
@@ -766,13 +758,10 @@ class Convolution2DLayerOPT(Convolution2DLayer):
             .transpose(0, 3, 1, 2)
         )
         
-        print(f'{gradient_kernel.shape=}')
         # computing the input gradient
         windows_out, upsampled_height, upsampled_width = self._extract_windows(
             delta_term_next, "grad"
         )
-
-        print(f'{windows_out.shape=}')
 
         new_windows_first_dim = (
             self.X_batch_feedforward.shape[input_index]
