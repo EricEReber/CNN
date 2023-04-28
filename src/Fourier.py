@@ -18,37 +18,65 @@ def DFT(vec):
     return fourier_1d
 
 
-def FFT(vec):
-    vec = np.asarray(vec, dtype=complex)
+# def FFT(vec):
+#     vec = np.asarray(vec, dtype=complex)
+#
+#     N = vec.shape[0]
+#
+#     if N == 1:
+#         return DFT(vec)
+#     else:
+#         vec_even = FFT(vec[::2])
+#         vec_odd = FFT(vec[1::2])
+#         W_u_2k = np.cos(2 * np.pi * np.arange(N) / N) - 1j * np.sin(
+#             2 * np.pi * np.arange(N) / N
+#         )
+#
+#         F_u = vec_even + vec_odd * W_u_2k[: N // 2]
+#
+#         F_u_M = vec_even + vec_odd * W_u_2k[N // 2 :]
+#
+#         fourier_vec = np.concatenate([F_u, F_u_M])
+#
+#     return fourier_vec
 
-    N = vec.shape[0]
 
-    if N == 1:
-        return DFT(vec)
-    else:
-        vec_even = FFT(vec[::2])
-        vec_odd = FFT(vec[1::2])
-        W_u_2k = np.cos(2 * np.pi * np.arange(N) / N) - 1j * np.sin(
-            2 * np.pi * np.arange(N) / N
-        )
+def FFT(x):
+    N = len(x)
+    M = 2 * N - 1
+    m = int(np.ceil(np.log2(M)))
+    L = 2**m
 
-        F_u = vec_even + vec_odd * W_u_2k[: N // 2]
+    # Compute the FFT of a sequence of complex exponential weights
+    j = np.arange(0, N)
+    omega = np.exp(-np.pi * 1j * j**2 / N)
+    x_padded = np.pad(x, (0, N - 1))
+    omega_padded = np.pad(omega, (0, N - 1))
+    omega_fft = np.fft.fft(omega_padded, L)
 
-        F_u_M = vec_even + vec_odd * W_u_2k[N // 2 :]
+    # Compute the FFT of the padded input sequence
+    x_padded_fft = np.fft.fft(x_padded, L)
 
-        fourier_vec = np.concatenate([F_u, F_u_M])
+    # Multiply the two FFTs element-wise
+    y_fft = omega_fft * x_padded_fft
 
-    return fourier_vec
+    # Compute the inverse FFT of the result
+    y = np.fft.ifft(y_fft)
+
+    # Extract the first N elements of the result
+    y = y[:N]
+
+    return y
 
 
 def FFT_2D(img):
     fourier_img = np.zeros((img.shape), dtype=complex)
-
+    N, M = img.shape[:2]
     for i in range(img.shape[0]):
-        fourier_img[i, :] = FFT(img[i, :])
+        fourier_img[i, :] = FFT(img[i, :])[:M]
 
     for j in range(img.shape[1]):
-        fourier_img[:, j] = FFT(fourier_img[:, j])
+        fourier_img[:, j] = FFT(fourier_img[:, j])[:N]
 
     return fourier_img
 
