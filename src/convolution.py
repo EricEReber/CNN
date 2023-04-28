@@ -90,10 +90,16 @@ def conv2DSep(image, kernel, coef, stride=1, pad="zero"):
 
 
 if __name__ == "__main__":
-    path = "/home/gregz/Files/CNN/data/luna.JPG"
+    from skimage import io, transform
+
+    path = "/home/gregz/Files/CNN/data/IMG-2167.JPG"
     image = imageio.imread(path, as_gray=True)
 
     gauss, ker = generate_gauss_mask(sigma=2)
+
+    new_size = (1024, 1024)
+    resized_image = transform.resize(image, new_size, anti_aliasing=True)
+
     # start_time = time.time()
     # conv_img = conv2DSep(image, gauss, coef=ker, pad='zero')
     # print(time.time() - start_time)
@@ -101,9 +107,9 @@ if __name__ == "__main__":
     start_time = time.time()
     four_imag = fourier_conv(image, gauss * ker)
     print(time.time() - start_time)
-
-    plt.imshow(four_imag, cmap="gray", vmin=0, vmax=255, aspect="auto")
-    plt.show()
+    #
+    # plt.imshow(four_imag, cmap="gray", vmin=0, vmax=255, aspect="auto")
+    # plt.show()
     # fourier_img = np.fft.fft2(image)
     # fourier_img = np.fft.fftshift(fourier_img)
 
