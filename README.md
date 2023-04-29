@@ -1,2 +1,2 @@
 # CNN
-CNN deep learning model developed for educational purposes related to the course FYS-STK 3155/4155 at the University of Oslo.
+Readable CNN deep learning model codebase developed for the Center of Computing in Science Education at the University of Oslo
