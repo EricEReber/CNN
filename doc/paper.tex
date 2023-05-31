@@ -1,0 +1,49 @@
+\documentclass[onecolumn,10pt,cleanfoot]{asme2ej}
+
+\usepackage{graphicx} %% for loading jpg figures
+\usepackage{bm}
+\usepackage{nicefrac}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{parskip}
+\usepackage{listings}
+\usepackage{tablefootnote}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage{tikz}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\author{Grzegorz Kajda
+    \affiliation{
+	Bachelor Student, Robotics and Intelligent Systems\\ \\[-10pt]
+	Department of Informatics The faculty of Mathematics and Natural Sciences\\ \\[-10pt]
+    Email: grzegork@ifi.uio.no
+    }
+}
+
+
+\begin{document}
+\title{Constructing a Convolutional Neural Network from ground up}
+\maketitle
+
+\section{Abstract}
+
+To gain a more comprehensive understanding of the inner mechanisms of deep learning networks, we developed a Convolutional Neural Network (CNN) from scratch for image classification. The network is structured into two main parts: a feed-forward network and a filtering network consisting of convolutional and pooling layers. Fortunately, we had previously built a feed-forward neural network as part of the subject "FYS-STK3155" at the University of Oslo. Hence, we utilized this code as a foundation for our new network.
+
+To enhance the modularity and resemblance to deep learning libraries like TensorFlow and PyTorch, we modularized the architecture of our network. Instead of having the entire network in one module, we created separate modules representing different types of layers. This approach enables us to construct flexible architectures in a simple and transparent manner while emphasizing the blackbox concept.
+
+Finally, we evaluated the performance of our initial implementation of a CNN using the 28x28 MNIST dataset, which served as a test benchmark.
+
+\section{Introduction}
+Machine Learning, particularly the sub-branch known as deep learning, has emerged as a powerful tool for data analysis and classification in the contemporary world. It enables us to extract meaningful insights from data with minimal effort and automate tasks like data clustering or generating new data from existing sources. With the advent of deep learning libraries such as TensorFlow and Keras, this process has become even simpler, allowing data scientists and developers to focus solely on their specific tasks without concerning themselves with the implementation details of these algorithms. While this "blackbox" approach saves valuable time, it can limit our understanding of how the algorithms truly work. Consider the example of backpropagation: deep learning libraries utilize automatic differentiation, eliminating the need to manually compute or propagate gradients backwards from the output to input. However, without referring to external resources, it is unlikely that one would be able to implement the algorithm from scratch.
+
+To gain a deeper understanding of how data is processed and transformed layer by layer, we will develop a Convolutional Neural Network (CNN) from scratch. This endeavor aims to draw insightful conclusions about the inner workings of the network. While prioritizing the blackbox ideology mentioned earlier, we will also ensure that the code is accessible and more readable than that of existing Machine Learning APIs.
+
+Before delving into the theoretical aspects of this project, it is important to note that we assume the reader is already familiar with concepts such as backpropagation in feed-forward networks and the use of schedulers for optimizing gradient descent. If these concepts are unfamiliar, we highly recommend reading our previous paper, which provides a detailed explanation of implementing a feed-forward network, including backpropagation and how it is affected by the use of various activation and cost functions. The paper can be found at: \href{https://github.com/EricEReber/FFNN_optimization/blob/main/doc/paper.pdf}{\color{blue}Neural networks for solving regression and classification problems}.
+
+\section{Theory}
+
+\end{document}
