@@ -89,6 +89,9 @@ b_j^l \leftarrow b_j^l-\eta \frac{\partial {\cal C}}{\partial b_j^l}=b_j^l-\eta 
 
 These equations demonstrate how the gradients are updated for the weights $w_{jk}^l$ and biases $b_j^l$ in each layer, where $\eta$ represents the learning rate, $\delta_j^l$ is the delta term for neuron $j$ in layer $l$, and $a_k^{l-1}$ denotes the activation of neuron $k$ in the previous layer. By iteratively updating these gradients, we optimize the network's parameters and enhance its ability to learn and make accurate predictions. 
 
+\subsection{Two types}
+The fully connected layers are split into two classes; FullyConnectedLayer which acts as a hidden layer, and OutputLayer, which acts as the single output layer at the end of the CNN. If one wishes to use this codebase to construct a normal feed forward neural network, it must start with a FlattenLayer due to techincal details regarding weight intitialization. However many FullyConnectedLayers can be added to the CNN, and in each layer the amount of nodes, which activation function and scheduler to use can be specified. In practice, the scheduler will be specified in the CNN object initialization, and inherited if no other scheduler is specified.
+
 \subsection{Convolution}
 In order to construct a convolutional neural network (CNN), it is crucial to comprehend the fundamental principles of convolution and how it aids in extracting information from images. Convolution, at its core, is merely a mathematical operation between two functions that yields another function. It is represented by an integral between two functions, which is typically expressed as:
 
@@ -108,6 +111,102 @@ The key idea we utilize to extract the information contained in an image is to s
 (f \ast g)[i, j] = \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} f[m,n] g[i-m, j-n]
 \end{equation}
 
+It is imperative to note that the size of the kernel g is significantly smaller than the size of the input image f, thereby reducing the amount of computation necessary for feature extraction. Furthermore, the kernel is usually a trainable parameter in a convolutional neural network, allowing the network to learn appropriate kernels for specific tasks. Now to give you an example of how 2D convolution works in practice, suppose we have an image \textit{f} of dimension $6 \times 6$
+
+\begin{equation}
+f = \begin{bmatrix}
+4 & 1 & 2 & 9 & 8 & 6 \\
+9 & 5 & 9 & 5 & 8 & 5 \\
+1 & 5 & 9 & 7 & 6 & 4 \\
+2 & 9 & 8 & 3 & 7 & 1 \\
+8 & 1 & 6 & 4 & 2 & 2 \\
+1 & 0 & 5 & 7 & 8 & 2 \\
+\end{bmatrix}
+\end{equation}
+
+and a $3 \times 3$ kernel \textit{g} called a low-pass filter. Note that the kernel is usually rotated by 180 degrees during convolution, however this has no effect on this kernel
+
+\begin{equation}
+g = \frac{1}{9} \begin{bmatrix}
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+1 & 1 & 1 \\
+\end{bmatrix}
+\end{equation}
+
+In order to filter the image, we have to extract a $3 \times 3$ element from the upper left corner of \textit{f}, and perform element-wise multiplication of the extracted image pixels with the elements of the kernel \textit{g}:
+\begin{equation}
+\begin{bmatrix}
+4 & 1 & 2 \\
+9 & 5 & 9 \\
+1 & 5 & 9 \\
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+\frac{1}{9} & \frac{1}{9} & \frac{1}{9} \\
+\frac{1}{9} & \frac{1}{9} & \frac{1}{9} \\
+\frac{1}{9} & \frac{1}{9} & \frac{1}{9} \\
+\end{bmatrix}
+=
+\begin{bmatrix}
+\frac{4}{9} & \frac{1}{9} & \frac{2}{9} \\
+\frac{9}{9} & \frac{5}{9} & \frac{9}{9} \\
+\frac{1}{9} & \frac{5}{9} & \frac{9}{9} \\
+\end {bmatrix}
+= \textbf{A}
+\end{equation}
+
+Then, following the multiplication, we summarize all the elements of the resulting matrix A:
+
+\begin{equation}
+(f \ast g)[0, 0] = \sum_{i=0}^{2} \sum_{j=0}^{2} a_{i,j} = 5
+\end{equation}
+
+Which corresponds to the first element of the filtered image $(f \ast g)$.
+
+	Here we use a stride of 1, a parameter denoted \textit{s} which describes how many indexes we move the kernel \textit{g} to the right before repeating the calculations above for the next $3 \times 3$ element of the image \textit{f}. It is usually presumed that \textit{s=1}, however, larger values for *s* can be used to reduce the dimentionality of the filtered image such that the convolution operation is more computationally efficient. In the context of a convolutional neural network, this will become very useful.
+
+The full result of the convolution is: 
+
+\begin{equation}
+\begin{bmatrix}
+5 & 5.78 & 7 & 6.44 \\
+6.33 & 6.67 & 6.89 & 5.11 \\
+5.44 & 5.78 & 5.78 & 4 \\
+4.44 & 4.78 & 5.56 & 4 \\
+\end{bmatrix}
+\end{equation}
+
+The result is markedly smaller in shape than the original image. This occurs when using convolution without first padding the image with additional columns and rows, allowing us to keep the original image shape after sliding the kernel over the image. How many rows and columns we wish to pad the image with depends strictly on the shape of the kernel, as we wish to pad the image with r additional rows and c additional columns.
+
+\begin{equation}
+r = \left\lfloor \frac{{\text{{kernel height}}}}{2} \right\rfloor \cdot 2 \\
+c = \left\lfloor \frac{{\text{{kernel width}}}}{2} \right\rfloor \cdot 2
+\end{equation}
+
+Note the notation $\lfloor \frac{kernel width}{2} \rfloor$ means that we floor the result of the division, meaning we round down to a whole number in case $\frac{kernel width}{2}$ results in a floating point number.
+Using those simple equations, we find out by how much we have to extend the dimensions of the original image. Before proceeding, however, we might ask what we shall fill the additional rows and columns with? One of the most common approaches to padding is zero-padding, which as the name suggest, involves filling the rows and columns with zeros. This is the approach that we will be using for this demonstration. If we apply this padding to out original $6 \times 6$ image, the result will we an $8 \times 8$ image as the kernel has a width and height of 3. Note that the original image is encapsuled by the zero-padded rows and columns:
+
+\begin{equation}
+\begin{bmatrix}
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+0 & 4 & 1 & 2 & 9 & 8 & 6 & 0 \\
+0 & 9 & 5 & 9 & 5 & 8 & 5 & 0 \\
+0 & 1 & 5 & 9 & 7 & 6 & 4 & 0 \\
+0 & 2 & 9 & 8 & 3 & 7 & 1 & 0 \\
+0 & 8 & 1 & 6 & 4 & 2 & 2 & 0 \\
+0 & 1 & 0 & 5 & 7 & 8 & 2 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+\end{bmatrix}
+\end{equation}
+
+\subsubsection{Fun fact}
+When filtering images, you will see that convolution involves rotating the kernel by 180 degrees. However, this is not the case when applying convolution in a CNN, where the same operation not rotated by 180 degrees is called cross-correlation.
+
+\subsection{Convolution2DLayer: convolution in a hidden layer}
+After establishing the foundational understanding of applying convolution to spatial data, let us delve into the intricate workings of a convolutional layer in a Convolutional Neural Network (CNN). The primary function of convolution, as previously discussed, is to extract pertinent information from images while simultaneously decreasing the scale of our data. To initiate the image processing, we shall begin by partitioning the images into color channels (unless the image is grayscale), comprising three primary colors: red, green, and blue. We will subsequently utilize trainable kernels to construct a higher-dimensional encoding of each channel called feature maps. Successive layers will receive these feature maps as inputs, generating further encodings, albeit with reduced dimensions. The term trainable kernels denotes the initialization of pre-defined kernel-shaped weights, which we will then train via backpropagation, similar to how weights are trained in a Feedforward Neural Network.
+
+To ensure seamless integration between our implementation of the convolutional layer and popular machine learning frameworks like Tensorflow (Keras) and PyTorch, we have adopted a design pattern that mirrors the construction of models using these APIs. This involves implementing our convolutional layer as a Python class or object, which allows for a more modular and flexible approach to building neural networks. By structuring our code in this way, users can easily incorporate our implementation into their existing machine learning pipelines without having to make significant changes to their codebase. Additionally, this design pattern promotes code reusability and makes it easier to maintain and update our convolutional layer implementation over time.
 
 
 \end{document}
