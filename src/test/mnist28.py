@@ -20,11 +20,8 @@ def onehot(target: np.ndarray):
     onehot[np.arange(target.size), target] = 1
     return onehot
 
-
 dataset = fetch_openml("mnist_784", parser="auto")
 mnist = dataset.data.to_numpy(dtype="float")[:10000, :]
-print(f"{mnist.shape=}")
-print(f"{mnist.shape=}")
 for i in range(mnist.shape[1]):
     mnist[:, i] /= 255
 mnist = mnist.reshape(mnist.shape[0], 1, 28, 28)
@@ -38,7 +35,7 @@ rho2 = 0.999
 momentum = 0.9
 eta = 1e-3
 lam = 1e-5
-epochs = 200
+epochs = 100
 batches =11
 
 adam_scheduler = Adam(eta, rho, rho2)
@@ -52,10 +49,15 @@ cnn.add_Convolution2DLayer(
     feature_maps=1,
     kernel_height=2,
     kernel_width=2,
-    v_stride=1,
-    h_stride=1,
-    optimized=True,
 )
+cnn.add_Convolution2DLayer(
+    act_func=LRELU,
+    input_channels=1,
+    feature_maps=1,
+    kernel_height=3,
+    kernel_width=3,
+)
+# cnn.add_PoolingLayer(kernel_height=2, kernel_width=2, pooling="max")
 
 cnn.add_FlattenLayer()
 

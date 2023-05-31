@@ -113,9 +113,9 @@ class CNN:
     def add_Convolution2DLayer(
         self,
         input_channels=1,
-        feature_maps=3,
-        kernel_height=32,
-        kernel_width=32,
+        feature_maps=1,
+        kernel_height=3,
+        kernel_width=3,
         v_stride=1,
         h_stride=1,
         pad="same",
@@ -153,7 +153,7 @@ class CNN:
                 pad,
                 act_func,
                 self.seed,
-                reset_self=False,
+                reset_weights_independently=False,
             )
         else:
             conv_layer = Convolution2DLayer(
@@ -166,7 +166,7 @@ class CNN:
                 pad,
                 act_func,
                 self.seed,
-                reset_self=False,
+                reset_weights_independently=False,
             )
         self.layers.append(conv_layer)
 
