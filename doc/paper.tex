@@ -66,7 +66,7 @@ a_i^l = f^l(z_i^l) = f^l\left(\sum_{j=1}^{N_{l-1}} w_{ij}^l a_j^{l-1} + b_i^l\ri
 Where the variables are defined as follows: $a_i^l$ represents the activation of the $i$-th neuron in layer $l$, $f^l(\cdot)$ denotes the activation function specific to layer $l$, $z_i^l$ is the weighted sum of inputs for neuron $i$ in layer $l$, $w_{ij}^l$ represents the weight connecting neuron $j$ in layer $l-1$ to neuron $i$ in layer $l$, $a_j^{l-1}$ is the activation of neuron $j$ in layer $l-1$, and $b_i^l$ is the bias term for neuron $i$ in layer $l$. This equation captures the essential computation performed by the fully connected layer, where input data is transformed into a higher-level representation using a combination of weighted sums and activation functions, and then propagated forward to the next layer.
 
 \subsubsection{backward pass}
-When it comes to backpropagation, the principles remain the same, and only our method of encapsulation has changed. By applying the chain rule repeatedly, we can iteratively calculate the gradient for each layer, starting from the output layer and working our way backward. This process, known as reverse mode of automatic differentiation, is computationally preferable over forward mode, where we begin at the input layer \cite[416]{sr}. The equations used for gradient calculation in a feed-forward neural network (FFNN), which we will not derive here, are as follows \cite{morten}:
+When it comes to backpropagation, the principles remain the same, and only our method of encapsulation has changed. By applying the chain rule repeatedly, we can iteratively calculate the gradient for each layer, starting from the output layer and working our way backward. This process, known as reverse mode of automatic differentiation, is computationally preferable over forward mode, where we begin at the input layer [Rascka, p. 416]. The equations used for gradient calculation in a feed-forward neural network (FFNN), which we will not derive here, are as follows [Morten Hjorth-Jensen, 2022]:
 
 First, we calculate the delta terms for all layers, beginning with the output layer:
 
@@ -164,7 +164,7 @@ Then, following the multiplication, we summarize all the elements of the resulti
 
 Which corresponds to the first element of the filtered image $(f \ast g)$.
 
-	Here we use a stride of 1, a parameter denoted \textit{s} which describes how many indexes we move the kernel \textit{g} to the right before repeating the calculations above for the next $3 \times 3$ element of the image \textit{f}. It is usually presumed that \textit{s=1}, however, larger values for *s* can be used to reduce the dimentionality of the filtered image such that the convolution operation is more computationally efficient. In the context of a convolutional neural network, this will become very useful.
+	Here we use a stride of 1, a parameter denoted \textit{s} which describes how many indexes we move the kernel \textit{g} to the right before repeating the calculations above for the next $3 \times 3$ element of the image \textit{f}. It is usually presumed that \textit{s=1}, however, larger values for *s* can be used to reduce the dimentionality of the filtered image such that the convolution operation is more computationally efficient [Goodfellow et al., 2016, 343]. In the context of a convolutional neural network, this will become very useful.
 
 The full result of the convolution is: 
 
@@ -201,7 +201,7 @@ Using those simple equations, we find out by how much we have to extend the dime
 \end{equation}
 
 \subsubsection{Fun fact}
-When filtering images, you will see that convolution involves rotating the kernel by 180 degrees. However, this is not the case when applying convolution in a CNN, where the same operation not rotated by 180 degrees is called cross-correlation.
+When filtering images, you will see that convolution involves rotating the kernel by 180 degrees. However, this is not the case when applying convolution in a CNN, where the same operation not rotated by 180 degrees is called cross-correlation [Gonsalez and Woods, p. 160].
 
 \subsection{Convolution2DLayer: convolution in a hidden layer}
 After establishing the foundational understanding of applying convolution to spatial data, let us delve into the intricate workings of a convolutional layer in a Convolutional Neural Network (CNN). The primary function of convolution, as previously discussed, is to extract pertinent information from images while simultaneously decreasing the scale of our data. To initiate the image processing, we shall begin by partitioning the images into color channels (unless the image is grayscale), comprising three primary colors: red, green, and blue. We will subsequently utilize trainable kernels to construct a higher-dimensional encoding of each channel called feature maps. Successive layers will receive these feature maps as inputs, generating further encodings, albeit with reduced dimensions. The term trainable kernels denotes the initialization of pre-defined kernel-shaped weights, which we will then train via backpropagation, similar to how weights are trained in a Feedforward Neural Network.
@@ -256,5 +256,44 @@ It is widely acknowledged that standard convolutional neural networks (CNNs) exh
   \label{fig:MINST_conf}
 \end{figure}
 
+\subsection{CNN on CIFAR-10} 
+To thoroughly evaluate the capabilities of our model, we applied the convolutional neural network (CNN) using the same hyperparameters as those used for the MNIST dataset on CIFAR-10. Upon initiating the training process, it quickly became evident that the MNIST dataset posed an exceptionally easy task for our classifier. Achieving accuracy above 90% on CIFAR-10, however, would necessitate fine-tuning the hyperparameters through methods such as grid search.
+
+Due to the considerable time required for training, we did not extensively experiment with different hyperparameter configurations. Our primary objective was to verify that the network performed well on a distinct dataset like CIFAR-10 and did not exhibit any unusual or unpredictable behavior.
+
+For reference, we include the accuracy plot over epochs and the confusion matrix below:
+
+\begin{figure}[H]
+  \centering
+	\includegraphics[width=0.9\textwidth, height=0.75\textwidth]{cifar10_trainVal_acc.png}
+	\caption{Development of the prediction accuracy with the progression of epochs}
+  \label{fig:CIFAR_acc}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+	\includegraphics[width=0.9\textwidth, height=0.75\textwidth]{conf_mat_cifar10.png}
+	\caption{Development of the prediction accuracy with the progression of epochs}
+  \label{fig:MINST_conf}
+\end{figure}
+
+\section{Summary and further experiments}
+We have successfully developed a fully functional convolutional neural network that achieves remarkable results in the classification of hand-written digits. Our network's architecture is transparent, allowing users to comprehend the underlying workings of this powerful algorithm, while still maintaining the blackbox approach employed by leading companies. However, in terms of performance, our network falls short of those industry leaders.
+
+The encapsulation scheme we adopted, inspired by frameworks like Keras, enables interested individuals to explore and experiment with the model at various levels of abstraction. This flexibility extends from implementing activation functions to constructing and initializing the entire model.
+
+Despite its functionality, the current implementation of our model suffers from sluggishness, which we are eager to address. We propose an approach to improve its efficiency by implementing an FFT-based CNN (FFT referring to the fast Fourier transform). This method offers a solution without the need to delve into hardware-specific high-performance computing, which can be overwhelming due to the extensive details involved. By expressing convolution in the Fourier domain, we can reduce the total number of multiplications in the process from $N^2$ to $N\log_2 N$. We provide a simple example in the accompanying Jupyter notebook to demonstrate how such convolution can be performed.
+
+\section{References}
+[Gonzales and Woods, 2018] Gonzales, R. C. and Woods, R. E. (2018). Digital Image Processing. Pearson, New Nork, NY.
+
+[Goodfellow et al., 2016] Goodfellow, I., Bengio, Y., and Courville, A. (2016). Deep Learning. MIT Press.
+http://www.deeplearningbook.org.
+
+[Weidman, 2019] Weidman Seth, (2019). Deep Learning from Scratch. O'Reilly Media; 1st edition.
+
+[Raschka, 2019] Raschka Sebastian (2019). Python Machine Learning. Packt Publishing, 3rd edition.
+
+[Morten Hjorth-Jensen, 2022] M. Hjorth-Jensen, "Week 39: Optimization and Gradient Methods," On the WWW, November 2022. URL: https://compphysics.github.io/MachineLearning/doc/pub/week39/html/week39.html
 
 \end{document}
