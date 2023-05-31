@@ -225,6 +225,36 @@ The pooling layer is a commonly used layer in convolutional neural networks (CNN
 \subsection{Flattening Layer}
 Before we can begin building our first CNN model, we need to introduce the flattening layer. As its name suggests, the flattening layer transforms the data into a one-dimensional vector that can be fed into the feedforward layers of our network. This layer plays a crucial role in preparing the data for further processing in the network. Additionally, the flattening layer is responsible for reshaping the gradient to the proper shape during backpropagation. This ensures that the kernels are correctly updated, allowing for effective learning in the network.
 
+\subsection{Datasets} 
+
+\subsubsection{MNIST}
+The MNIST dataset is a well known multiclass classification problem used to test machine learning algorithms. It consists of $70000$ black and white images of hand drawn digits, each $28$ by $28$ pixels. Each image is labeled with one of ten classes, corresponding to the digit it depicts. The dataset is divided into $60000$ training images and $10000$ test images. This dataset is essentially uniformly distributed, with all classes containing around $9 - 11\%$ of the total dataset.
+
+\subsubsection{CIFAR-10}
+CIFAR-10 is widely recognized as one of the most commonly used datasets for benchmarking image classification models. Consisting of $60000$ RGB pictures, it encompasses 10 distinct classes, such as airplanes, automobiles, and dogs. Similar to the MNIST dataset, CIFAR-10 maintains a uniform distribution among the classes, with approximately $6000$ examples per class. However, it should be noted that the images within this dataset possess relatively low resolution. This low resolution further compounds the challenges inherent in classifying objects that have inherent physical disparities, such as distinguishing between transportation vehicles and animals.
+
 \subsection{Note}
 All the theoretical concepts discussed, as well as the corresponding code for each component described, including the convolutional layer, pooling layer, and the CNN itself, are presented in a comprehensive Jupyter Notebook file here: \href{https://github.com/EricEReber/CNN/blob/main/doc/CNN_in_Python.ipynb}{\color{blue}CNN\ in\ Python}. The notebook provides detailed explanations and examples on how to use these components to build a fully functioning CNN. It serves as a valuable resource for understanding and implementing convolutional neural networks.
+
+\section{Results}
+With the theory and implementation explained, we can now discuss the results we achieved by applying our CNN to the datasets introduced above. 
+
+\subsection{CNN on MNIST}
+It is widely acknowledged that standard convolutional neural networks (CNNs) exhibit remarkable performance, rivaling human cognitive abilities, particularly in recognizing hand-written digits. Surprisingly, achieving such results does not require complex architectures with multiple layers. In line with this understanding, our initial architecture comprises a solitary convolutional layer with one input and one output channel. The layer employs a symmetric kernel with dimensions of 2x2 and a stride of 3 in both the horizontal and vertical directions. Following this convolutional layer, we include a flattening layer, which is succeeded by two fully connected layers. These layers utilize the Leaky ReLU function as their activation unit and consist of 30 and 20 hidden nodes, respectively. The final layer, serving as the output layer, contains 10 nodes, facilitating multiclass classification using softmax activation. Despite its simplicity, this architecture yields impressive results, with a training accuracy of approximately 99\% and a validation accuracy ranging from 97\% to 98\%, all achieved without employing any form of grid search. A plot of accuracy over epochs and the confusion matrix for the predictions using $\textit{xval}$ dataset are provided below. (There seems to be something small errors in the confusion matrix, as accuracy computed from the matrix is a couple percent lower than that computed using method $np.average(y_{pred} == y_{val})$):
+
+\begin{figure}[H]
+  \centering
+	\includegraphics[width=0.9\textwidth, height=0.75\textwidth]{mnist28_trainVal_acc.png}
+	\caption{Development of the prediction accuracy with the progression of epochs}
+  \label{fig:MINST_acc}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+	\includegraphics[width=0.9\textwidth, height=0.75\textwidth]{conf_mat_mnist28.png}
+	\caption{Development of the prediction accuracy with the progression of epochs}
+  \label{fig:MINST_conf}
+\end{figure}
+
+
 \end{document}
