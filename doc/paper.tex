@@ -46,4 +46,23 @@ Before delving into the theoretical aspects of this project, it is important to 
 
 \section{Theory}
 
+\subsection{Description of structure}
+When building a standalone neural network from scratch, a common approach is to encapsulate the code within a single method or class. Typically, the architecture is defined by providing a list of integer values, where the length of the list indicates the number of hidden layers, and the values within the list specify the dimensions of each layer. While this approach is acceptable, it can sometimes be counterintuitive and prone to errors. In our implementation, we opt for a more organized approach by dividing the code into manageable modules called "layers." These layers serve as explicit representations of the individual layers within the neural network.
+
+Similar to TensorFlow, we instantiate these layers, which automatically add them to a list in the order they are created. This allows for easy comparison with the functionality provided by existing machine learning libraries. The list containing our layers is stored within a container class called \textbf{CNN}. Additionally, the \textbf{CNN} class includes additional functionality for controlling all layers simultaneously.
+
+Having discussed the general structure of our code, we will now describe each type of layer that we will be using and explain their functionalities.
+
+\subsection{Fully connected layer}
+The fully connected layer, as the name suggests, represents a standard layer type commonly found in feed-forward neural networks. In the feed-forward mode, this layer takes a batch of data as input and performs a batch-weight matrix multiplication. The resulting product is then passed through an activation function, which elevates the weighted input into a higher-dimensional encoding. This process enables the network to learn arbitrary relationships between the input data's features. The key difference is that instead of using a for loop to iterate over each layer, we explicitly pass data from one layer to another.
+
+Mathematically, we can define the action of this layer using the following equation:
+
+\begin{equation}
+a_i^l = f^l(z_i^l) = f^l\left(\sum_{j=1}^{N_{l-1}} w_{ij}^l a_j^{l-1} + b_i^l\right).
+\end{equation}
+
+In this equation, $a_i^l$ represents the activation of the $i$-th neuron in layer $l$, $f^l(\cdot)$ denotes the activation function specific to layer $l$, $z_i^l$ is the weighted sum of inputs for neuron $i$ in layer $l$, $w_{ij}^l$ represents the weight connecting neuron $j$ in layer $l-1$ to neuron $i$ in layer $l$, $a_j^{l-1}$ is the activation of neuron $j$ in layer $l-1$, and $b_i^l$ is the bias term for neuron $i$ in layer $l$. This equation captures the computation performed by the fully connected layer, transforming the input data into a higher-level representation through a series of weighted sums and activation functions.
+
+When it comes to the backward pass of the network
 \end{document}
