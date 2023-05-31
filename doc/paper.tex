@@ -54,6 +54,7 @@ Similar to TensorFlow, we instantiate these layers, which automatically add them
 Having discussed the general structure of our code, we will now describe each type of layer that we will be using and explain their functionalities.
 
 \subsection{Fully connected layer}
+\subsubsection{Forward pass}
 The fully connected layer, as the name suggests, represents a standard layer type commonly found in feed-forward neural networks. In the feed-forward mode, this layer takes a batch of data as input and performs a batch-weight matrix multiplication. The resulting product is then passed through an activation function, which elevates the weighted input into a higher-dimensional encoding. This process enables the network to learn arbitrary relationships between the input data's features. The key difference is that instead of using a for loop to iterate over each layer, we explicitly pass data from one layer to another.
 
 Mathematically, we can define the action of this layer using the following equation:
@@ -62,7 +63,51 @@ Mathematically, we can define the action of this layer using the following equat
 a_i^l = f^l(z_i^l) = f^l\left(\sum_{j=1}^{N_{l-1}} w_{ij}^l a_j^{l-1} + b_i^l\right).
 \end{equation}
 
-In this equation, $a_i^l$ represents the activation of the $i$-th neuron in layer $l$, $f^l(\cdot)$ denotes the activation function specific to layer $l$, $z_i^l$ is the weighted sum of inputs for neuron $i$ in layer $l$, $w_{ij}^l$ represents the weight connecting neuron $j$ in layer $l-1$ to neuron $i$ in layer $l$, $a_j^{l-1}$ is the activation of neuron $j$ in layer $l-1$, and $b_i^l$ is the bias term for neuron $i$ in layer $l$. This equation captures the computation performed by the fully connected layer, transforming the input data into a higher-level representation through a series of weighted sums and activation functions.
+Where the variables are defined as follows: $a_i^l$ represents the activation of the $i$-th neuron in layer $l$, $f^l(\cdot)$ denotes the activation function specific to layer $l$, $z_i^l$ is the weighted sum of inputs for neuron $i$ in layer $l$, $w_{ij}^l$ represents the weight connecting neuron $j$ in layer $l-1$ to neuron $i$ in layer $l$, $a_j^{l-1}$ is the activation of neuron $j$ in layer $l-1$, and $b_i^l$ is the bias term for neuron $i$ in layer $l$. This equation captures the essential computation performed by the fully connected layer, where input data is transformed into a higher-level representation using a combination of weighted sums and activation functions, and then propagated forward to the next layer.
 
-When it comes to the backward pass of the network
+\subsubsection{backward pass}
+When it comes to backpropagation, the principles remain the same, and only our method of encapsulation has changed. By applying the chain rule repeatedly, we can iteratively calculate the gradient for each layer, starting from the output layer and working our way backward. This process, known as reverse mode of automatic differentiation, is computationally preferable over forward mode, where we begin at the input layer \cite[416]{sr}. The equations used for gradient calculation in a feed-forward neural network (FFNN), which we will not derive here, are as follows \cite{morten}:
+
+First, we calculate the delta terms for all layers, beginning with the output layer:
+
+\begin{equation}
+y_i^l = f^l(u_i^l) = f^l\left(\sum_{j=1}^{N_{l-1}} w_{ij}^l y_j^{l-1} + b_i^l\right).
+\end{equation}
+
+We then utilize this term in an iterative process, moving backward through the network with the following equation:
+
+\begin{equation}
+\delta_j^l = \sum_k \delta_k^{l+1}w_{kj}^{l+1}f'(z_j^l).
+\end{equation}
+
+Using these delta terms, we can compute the gradients for the weights and biases in each layer:
+
+\begin{gather}
+w_{jk}^l\leftarrow = w_{jk}^l- \eta \delta_j^la_k^{l-1}, \
+b_j^l \leftarrow b_j^l-\eta \frac{\partial {\cal C}}{\partial b_j^l}=b_j^l-\eta \delta_j^l.
+\end{gather}
+
+These equations demonstrate how the gradients are updated for the weights $w_{jk}^l$ and biases $b_j^l$ in each layer, where $\eta$ represents the learning rate, $\delta_j^l$ is the delta term for neuron $j$ in layer $l$, and $a_k^{l-1}$ denotes the activation of neuron $k$ in the previous layer. By iteratively updating these gradients, we optimize the network's parameters and enhance its ability to learn and make accurate predictions. 
+
+\subsection{Convolution}
+In order to construct a convolutional neural network (CNN), it is crucial to comprehend the fundamental principles of convolution and how it aids in extracting information from images. Convolution, at its core, is merely a mathematical operation between two functions that yields another function. It is represented by an integral between two functions, which is typically expressed as:
+
+\begin{equation}
+(f \ast g)(t) := \int_{-\infty}^{\infty} f(\tau) g(t-\tau) d \tau
+\end{equation}
+
+Here, f and g are the two functions on which we want to perform an operation. The outcome of the convolution operation is represented by $(f \ast g)$, and it is derived by sliding the function g over f and computing the integral of their product at each position. If both functions are continuous, convolution takes the form shown above. However, if we discretize both f and g, the convolution operation will take the form of a sum between the elements of f and g:
+
+\begin{equation}
+(f \ast g)[n] = \sum_{m=0}^{n-1} f[m] g[n-m]
+\end{equation}
+
+The key idea we utilize to extract the information contained in an image is to slide an $m \times n$ matrix *g* over an $m \times n$ matrix \textit{f}. In our case, \textit{f} represents the image, while \textit{g} represents the kernel, oftentimes called a filter. However, since our convolution will be a two-dimensional variant, we need to extend our mathematical formula with an additional summation:
+
+\begin{equation}
+(f \ast g)[i, j] = \sum_{m=0}^{M-1} \sum_{n=0}^{N-1} f[m,n] g[i-m, j-n]
+\end{equation}
+
+
+
 \end{document}
