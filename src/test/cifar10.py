@@ -13,7 +13,7 @@ from src.utils import accuracy, confusion, plot_confusion
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 """
-Test file to test capabilites of CNN.py on 28x28 MNIST data
+Test file to test capabilites of CNN.py on 32x32 CIFAR-10 data
 """
 from sklearn.model_selection import train_test_split
 from torchvision.datasets import CIFAR10
@@ -25,12 +25,14 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
-def plot_confusion_matrix_sklearn(predictions, targets, labels):
-    pred_labels = np.argmax(predictions, axis=1)
-    true_labels = np.argmax(targets, axis=1)
-    cm = confusion_matrix(true_labels, pred_labels)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-    disp.plot(cmap="Blues")
+def plot_confusion_matrix(conf_matrix, classes):
+    normalized_matrix = conf_matrix / np.sum(conf_matrix, axis=1, keepdims=True)
+    fig, ax = plt.subplots()
+    ax = sns.heatmap(normalized_matrix, annot=True, cmap="Blues", fmt=".2%", cbar=False)
+    ax.set_xlabel("Predicted Labels")
+    ax.set_ylabel("True Labels")
+    ax.set_xticklabels(classes)
+    ax.set_yticklabels(classes)
     plt.title("Confusion Matrix")
     plt.show()
 
@@ -71,9 +73,9 @@ rho = 0.9
 rho2 = 0.999
 momentum = 0.9
 eta = 1e-3
-lam = 1e-3
+lam = 1e-5
 epochs = 100
-batches = 256
+batches = 10
 
 adam_scheduler = Adam(eta, rho, rho2)
 momentum_scheduler = Momentum(eta, momentum)
@@ -84,10 +86,10 @@ cnn.add_Convolution2DLayer(
     act_func=LRELU,
     input_channels=3,
     feature_maps=3,
-    kernel_height=3,
-    kernel_width=3,
-    v_stride=2,
-    h_stride=2,
+    kernel_height=2,
+    kernel_width=2,
+    v_stride=3,
+    h_stride=3,
     optimized=True,
 )
 # cnn.add_Convolution2DLayer(
@@ -104,20 +106,20 @@ cnn.add_Convolution2DLayer(
 
 cnn.add_FlattenLayer()
 
-cnn.add_FullyConnectedLayer(100, RELU)
+cnn.add_FullyConnectedLayer(30, LRELU)
 
-cnn.add_FullyConnectedLayer(50, RELU)
+cnn.add_FullyConnectedLayer(20, LRELU)
 
 cnn.add_OutputLayer(10, softmax)
 
 scores = cnn.fit(
-    x_train[::8],
-    y_train[::8],
+    x_train[::4],
+    y_train[::4],
     lam=lam,
     batches=batches,
     epochs=epochs,
-    X_val=x_val[::8],
-    t_val=y_val[::8],
+    X_val=x_val[::4],
+    t_val=y_val[::4],
 )
 
 plt.plot(scores["train_acc"], label="Training")
@@ -129,5 +131,6 @@ plt.legend()
 plt.show()
 
 
-prediction = cnn.predict(x_val[::8])
-conf_array = plot_confusion_matrix_sklearn(prediction, y_val[::8], labels)
+prediction = cnn.predict(x_val[::4])
+conf_array = plot_confusion_matrix(
+    np.argmax(prediction, axis=-1), np.argmax(y_val[::4], axis=-1)
